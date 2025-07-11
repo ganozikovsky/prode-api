@@ -1,0 +1,105 @@
+### Prode API - Ejemplos de uso
+
+### 1. Obtener información de la API
+GET http://localhost:3000
+
+### 2. Obtener información de la Liga Profesional Argentina
+GET http://localhost:3000/promiedos/league/info
+
+### 3. Crear un usuario
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "email": "juan@example.com",
+  "name": "Juan Pérez"
+}
+
+### 4. Obtener todos los usuarios
+GET http://localhost:3000/users
+
+### 5. Obtener información de la Fecha 1
+GET http://localhost:3000/promiedos/round/1
+
+### 6. Obtener información de la Fecha 2
+GET http://localhost:3000/promiedos/round/2
+
+### 7. Generar external ID para Fecha 1
+GET http://localhost:3000/promiedos/external-id/1
+
+### 8. Crear un pronóstico para la fecha 1
+POST http://localhost:3000/pronostics
+Content-Type: application/json
+
+{
+  "externalId": "72_224_8_1",
+  "userId": 1,
+  "prediction": {
+    "scores": [2, 1],
+    "scorers": ["Messi", "Alvarez"]
+  }
+}
+
+### 9. Obtener todos los pronósticos
+GET http://localhost:3000/pronostics
+
+### 10. Obtener pronósticos por external ID (Fecha 1)
+GET http://localhost:3000/pronostics?externalId=72_224_8_1
+
+### 11. Obtener pronósticos por usuario
+GET http://localhost:3000/pronostics?userId=1
+
+### 12. Actualizar un pronóstico
+PATCH http://localhost:3000/pronostics/1
+Content-Type: application/json
+
+{
+  "prediction": {
+    "scores": [3, 0],
+    "scorers": ["Messi", "Di María", "Lautaro"]
+  }
+}
+
+### 13. Crear otro usuario
+POST http://localhost:3000/users
+Content-Type: application/json
+
+{
+  "email": "maria@example.com",
+  "name": "María González"
+}
+
+### 14. Crear pronóstico para fecha 2
+POST http://localhost:3000/pronostics
+Content-Type: application/json
+
+{
+  "externalId": "72_224_8_2",
+  "userId": 2,
+  "prediction": {
+    "scores": [1, 2],
+    "scorers": ["Botta", "Bebelo"]
+  }
+}
+
+### 15. Obtener todas las fechas (1-16) - ¡CUIDADO! Hace 16 requests
+GET http://localhost:3000/promiedos/rounds
+
+### 16. Parsear un external ID
+GET http://localhost:3000/promiedos/parse-external-id/72_224_8_1
+
+### 17. Obtener fecha específica (ejemplo: fecha 8)
+GET http://localhost:3000/promiedos/round/8
+
+### 18. Crear pronóstico para fecha 16
+POST http://localhost:3000/pronostics
+Content-Type: application/json
+
+{
+  "externalId": "72_224_8_16",
+  "userId": 1,
+  "prediction": {
+    "scores": [2, 2],
+    "scorers": ["Jugador1", "Jugador2", "Jugador3", "Jugador4"]
+  }
+} 

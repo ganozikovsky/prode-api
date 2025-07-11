@@ -1,0 +1,37 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int         @id @default(autoincrement())
+  email     String      @unique
+  name      String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  
+  // Relación con pronósticos
+  pronostics Pronostic[]
+}
+
+model Pronostic {
+  id         Int      @id @default(autoincrement())
+  externalId String   // ID de la API externa (promiedos.com.ar)
+  userId     Int
+  prediction Json     // Objeto JSON con scores y scorers
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  // Relación con usuario
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Índice para buscar eficientemente por externalId
+  @@index([externalId])
+}
