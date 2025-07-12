@@ -77,3 +77,13 @@ export interface GroupedMatchdayResponse {
   date: string;
   matches: GameWithPronostics[];
 }
+
+// 🆕 Interfaz para respuesta completa con metadatos y agrupación por fecha
+export interface EnhancedMatchdayResponse {
+  round: number;
+  roundName: string;
+  totalGames: number;
+  externalIdPattern: string;
+  databaseStatus: 'available' | 'unavailable';
+  gamesByDate: GroupedMatchdayResponse[];
+}

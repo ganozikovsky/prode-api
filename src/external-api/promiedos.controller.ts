@@ -19,6 +19,7 @@ import { MatchdaySchedulerService } from './services/matchday-scheduler.service'
 import {
   GameWithPronostics,
   GroupedMatchdayResponse,
+  EnhancedMatchdayResponse,
 } from './interfaces/game.interface';
 
 @ApiTags('external-api')
@@ -80,65 +81,82 @@ export class PromiedosController {
 
   @Get('lpf/current')
   @ApiOperation({
-    summary: '🎯 Obtener la fecha actual automáticamente (agrupada por fecha)',
+    summary:
+      '🎯 Obtener la fecha actual automáticamente (con metadatos y agrupada por fecha)',
     description:
       'Calcula automáticamente qué fecha mostrar basándose en el estado de los partidos. ' +
       'Usa inteligencia artificial para determinar si mostrar la fecha en curso, ' +
       'la próxima fecha programada, o la última fecha con información válida. ' +
-      'Los partidos se devuelven agrupados por fecha de juego.',
+      'Los partidos se devuelven agrupados por fecha de juego, manteniendo los metadatos originales.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Datos de la fecha actual agrupados por fecha',
+    description:
+      'Datos de la fecha actual con metadatos y partidos agrupados por fecha',
     schema: {
-      example: [
-        {
-          date: '2025-07-13T00:00:00.000Z',
-          matches: [
-            {
-              id: 'game_id_123',
-              stage_round_name: 'Fecha 1',
-              winner: 0,
-              teams: [
-                {
-                  name: 'River Plate',
-                  short_name: 'RIV',
-                  id: 'hhij',
-                  // ... otros campos
+      example: {
+        round: 1,
+        roundName: 'Fecha 1',
+        totalGames: 14,
+        externalIdPattern: '72_224_8_1',
+        databaseStatus: 'available',
+        gamesByDate: [
+          {
+            date: '2025-07-13T00:00:00.000Z',
+            matches: [
+              {
+                id: 'game_id_123',
+                stage_round_name: 'Fecha 1',
+                winner: 0,
+                teams: [
+                  {
+                    name: 'River Plate',
+                    short_name: 'RIV',
+                    id: 'hhij',
+                    // ... otros campos
+                  },
+                ],
+                scores: [2, 1],
+                status: {
+                  enum: 1,
+                  name: 'Prog.',
+                  short_name: 'Prog.',
+                  symbol_name: 'Prog.',
                 },
-              ],
-              scores: [2, 1],
-              status: {
-                enum: 1,
-                name: 'Prog.',
-                short_name: 'Prog.',
-                symbol_name: 'Prog.',
+                start_time: '13-07-2025 21:00',
+                pronostics: [
+                  {
+                    id: 1,
+                    userId: 1,
+                    prediction: { scores: [2, 1], scorers: ['Messi'] },
+                    user: { id: 1, name: 'Juan', email: 'juan@test.com' },
+                  },
+                ],
+                totalPronostics: 5,
               },
-              start_time: '13-07-2025 21:00',
-              pronostics: [
-                {
-                  id: 1,
-                  userId: 1,
-                  prediction: { scores: [2, 1], scorers: ['Messi'] },
-                  user: { id: 1, name: 'Juan', email: 'juan@test.com' },
-                },
-              ],
-              totalPronostics: 5,
-            },
-          ],
-        },
-        {
-          date: '2025-07-14T00:00:00.000Z',
-          matches: [
-            // ... más partidos
-          ],
-        },
-      ],
+            ],
+          },
+          {
+            date: '2025-07-14T00:00:00.000Z',
+            matches: [
+              // ... más partidos
+            ],
+          },
+        ],
+      },
     },
   })
-  async getCurrentMatchday() {
+  async getCurrentMatchday(): Promise<EnhancedMatchdayResponse> {
     const matchdayData = await this.promiedosService.getMatchday();
-    return this.groupMatchesByDate(matchdayData.games);
+
+    return {
+      round: matchdayData.round,
+      roundName: matchdayData.roundName,
+      totalGames: matchdayData.totalGames,
+      externalIdPattern: matchdayData.externalIdPattern,
+      databaseStatus: matchdayData.databaseStatus,
+      gamesByDate: this.groupMatchesByDate(matchdayData.games),
+    };
   }
 
   @Get('lpf/current/round')
