@@ -111,3 +111,29 @@ model MatchdayPoints {
   @@index([tournamentId, matchday]) // Para rankings por fecha
   @@index([tournamentId, userId])   // Para puntos de usuario en torneo
 }
+
+model CronJobExecution {
+  id           Int      @id @default(autoincrement())
+  jobName      String   // Nombre del cron job (ej: "update-current-matchday")
+  status       String   // "started", "completed", "failed"
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  executionTimeMs Int?  // Tiempo de ejecución en milisegundos
+  
+  // Datos específicos del trabajo
+  previousValue String? // Valor anterior (ej: "3")
+  newValue     String?  // Nuevo valor (ej: "4")
+  recordsAffected Int?  // Cuántos registros se modificaron
+  
+  // Metadatos
+  metadata     Json?    // Información adicional como parámetros, configuración, etc.
+  errorMessage String?  // Mensaje de error si falló
+  hostInfo     String?  // Información del servidor/dyno
+  
+  // Índices para consultas eficientes
+  @@index([jobName, startedAt])
+  @@index([status])
+  @@index([startedAt])
+  
+  @@map("cron_job_executions")
+}

@@ -10,6 +10,7 @@ import { MatchdayRepositoryService } from './services/matchday-repository.servic
 import { MatchdayCalculatorService } from './services/matchday-calculator.service';
 import { MatchdaySchedulerService } from './services/matchday-scheduler.service';
 import { PointsService } from './services/points.service';
+import { CronAuditService } from './services/cron-audit.service';
 
 @Module({
   imports: [PronosticModule], // Importar el módulo de pronósticos
@@ -27,6 +28,7 @@ import { PointsService } from './services/points.service';
     MatchdayCalculatorService,
     MatchdaySchedulerService,
     PointsService,
+    CronAuditService,
   ],
   exports: [
     PromiedosService,
@@ -34,6 +36,7 @@ import { PointsService } from './services/points.service';
     MatchdayRepositoryService,
     MatchdaySchedulerService,
     PointsService,
+    CronAuditService,
   ],
 })
 export class ExternalApiModule {}

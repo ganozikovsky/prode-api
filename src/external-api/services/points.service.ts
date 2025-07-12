@@ -40,7 +40,12 @@ export class PointsService {
    * Procesa todos los partidos finalizados y calcula puntos
    * Este es el método principal que ejecutará el cron job
    */
-  async processFinishedMatches(): Promise<void> {
+  async processFinishedMatches(): Promise<{
+    processedCount: number;
+    processedMatches: number;
+    totalMatches: number;
+    matchday: number;
+  }> {
     this.logger.log('🔍 Iniciando procesamiento de partidos finalizados...');
 
     try {
@@ -55,9 +60,16 @@ export class PointsService {
         (game: GameResult) => game.status.enum === 3,
       );
 
+      const totalMatches = currentMatchdayData.games.length;
+
       if (finishedGames.length === 0) {
         this.logger.log('⏸️ No hay partidos finalizados para procesar');
-        return;
+        return {
+          processedCount: 0,
+          processedMatches: 0,
+          totalMatches,
+          matchday: currentMatchday,
+        };
       }
 
       this.logger.log(
@@ -65,6 +77,7 @@ export class PointsService {
       );
 
       let totalProcessed = 0;
+      let processedMatches = 0;
 
       // Procesar cada partido finalizado
       for (const game of finishedGames) {
@@ -72,12 +85,22 @@ export class PointsService {
           game,
           currentMatchday,
         );
+        if (processed > 0) {
+          processedMatches++;
+        }
         totalProcessed += processed;
       }
 
       this.logger.log(
         `✅ Procesamiento completado: ${totalProcessed} pronósticos procesados`,
       );
+
+      return {
+        processedCount: totalProcessed,
+        processedMatches,
+        totalMatches,
+        matchday: currentMatchday,
+      };
     } catch (error) {
       this.logger.error('❌ Error procesando partidos finalizados:', error);
       throw error;

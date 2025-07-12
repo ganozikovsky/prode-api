@@ -36,6 +36,34 @@ GET {{host}}/promiedos/lpf/crest/igi?size=1
 Accept: application/json
 
 # ===============================================
+# 📊 MONITOREO DE CRON JOBS
+# ===============================================
+
+### 16. Estado actual de todos los cron jobs
+GET {{host}}/promiedos/monitoring/cron-jobs/status
+Accept: application/json
+
+### 17. Estadísticas de cron jobs (últimas 24 horas)
+GET {{host}}/promiedos/monitoring/cron-jobs/stats?hours=24
+Accept: application/json
+
+### 18. Estadísticas de un cron job específico
+GET {{host}}/promiedos/monitoring/cron-jobs/stats?jobName=update-current-matchday&hours=48
+Accept: application/json
+
+### 19. Historial detallado de ejecuciones
+GET {{host}}/promiedos/monitoring/cron-jobs/history?limit=20
+Accept: application/json
+
+### 20. Historial de un cron job específico
+GET {{host}}/promiedos/monitoring/cron-jobs/history?jobName=process-points-dynamic&limit=10
+Accept: application/json
+
+### 21. Ejecutar cron job manualmente (solo testing)
+GET {{host}}/promiedos/monitoring/cron-jobs/execute/update-current-matchday
+Accept: application/json
+
+# ===============================================
 # 🔐 AUTENTICACIÓN CON GOOGLE
 # ===============================================
 
@@ -159,6 +187,14 @@ Authorization: Bearer {{jwt_token}}
 # - Solo UN pronóstico por partido por usuario
 # - Si ya tienes uno, usa PATCH /pronostics/:id para editarlo
 # - El userId se obtiene automáticamente del token JWT
+
+# 📊 MONITOREO DE CRON JOBS:
+# - /monitoring/cron-jobs/status -> Estado actual de todos los cron jobs
+# - /monitoring/cron-jobs/stats -> Estadísticas de rendimiento y errores
+# - /monitoring/cron-jobs/history -> Historial detallado de ejecuciones
+# - Todos los cron jobs se auditan automáticamente en la base de datos
+# - Los errores se reportan automáticamente a Sentry
+# - Las métricas se envían automáticamente a New Relic
 
 # 📊 ESTADOS DE PARTIDOS:
 # - enum: 1 = Programado, 2 = En vivo, 3 = Finalizado

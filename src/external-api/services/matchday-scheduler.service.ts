@@ -3,6 +3,7 @@ import { Cron, SchedulerRegistry } from '@nestjs/schedule';
 import { MatchdayCalculatorService } from './matchday-calculator.service';
 import { MatchdayRepositoryService } from './matchday-repository.service';
 import { PointsService } from './points.service';
+import { CronAuditService } from './cron-audit.service';
 import * as Sentry from '@sentry/node';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class MatchdaySchedulerService {
     private readonly repository: MatchdayRepositoryService,
     private readonly pointsService: PointsService,
     private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly cronAudit: CronAuditService,
   ) {}
 
   /**
@@ -27,10 +29,19 @@ export class MatchdaySchedulerService {
     timeZone: 'America/Argentina/Buenos_Aires',
   })
   async updateCurrentMatchdayCronJob(): Promise<void> {
-    this.logger.log('⏰ Ejecutando cron job: update-current-matchday');
+    const jobName = 'update-current-matchday';
+    let executionId: number;
 
     try {
-      const startTime = Date.now();
+      // Iniciar auditoría
+      executionId = await this.cronAudit.startExecution(jobName, {
+        scheduledTime: new Date().toISOString(),
+        timezone: 'America/Argentina/Buenos_Aires',
+      });
+
+      this.logger.log(
+        `⏰ Ejecutando cron job: ${jobName} (ID: ${executionId})`,
+      );
 
       // Obtener valor anterior para logging
       const previousRound = await this.repository
@@ -43,12 +54,22 @@ export class MatchdaySchedulerService {
       // Guardar en DB
       await this.repository.saveCurrentMatchday(newRound, 'cron_job');
 
-      const executionTime = Date.now() - startTime;
       const changed = previousRound !== newRound;
+
+      // Completar auditoría exitosa
+      const result = await this.cronAudit.completeExecution(executionId, {
+        previousValue: previousRound?.toString(),
+        newValue: newRound.toString(),
+        recordsAffected: 1,
+        metadata: {
+          changed,
+          calculatedRounds: 'auto-detection',
+        },
+      });
 
       this.logger.log(
         `✅ Cron job completado: current_matchday ${previousRound || 'null'} → ${newRound} ` +
-          `(${changed ? 'CAMBIÓ' : 'sin cambios'}) - ${executionTime}ms`,
+          `(${changed ? 'CAMBIÓ' : 'sin cambios'}) - ${result.executionTimeMs}ms`,
       );
 
       // Log adicional si cambió la fecha
@@ -58,14 +79,22 @@ export class MatchdaySchedulerService {
         );
       }
     } catch (error) {
-      this.logger.error(
-        `❌ Error en cron job update-current-matchday: ${error.message}`,
-      );
+      this.logger.error(`❌ Error en cron job ${jobName}: ${error.message}`);
+
+      // Marcar auditoría como fallida
+      if (executionId!) {
+        await this.cronAudit.failExecution(executionId, error, {
+          operation: 'update-current-matchday',
+          phase: error.message.includes('calculate')
+            ? 'calculation'
+            : 'database',
+        });
+      }
 
       // Reportar a Sentry para monitoreo
       Sentry.withScope((scope) => {
         scope.setTag('service', 'matchday-scheduler');
-        scope.setTag('cron_job', 'update-current-matchday');
+        scope.setTag('cron_job', jobName);
         scope.setLevel('error');
         Sentry.captureException(error);
       });
@@ -202,9 +231,20 @@ export class MatchdaySchedulerService {
     timeZone: 'America/Argentina/Buenos_Aires',
   })
   async checkMatchesTodayCronJob(): Promise<void> {
-    this.logger.log('🌅 Ejecutando verificación de partidos de hoy (11 AM)...');
+    const jobName = 'check-matches-today';
+    let executionId: number;
 
     try {
+      // Iniciar auditoría
+      executionId = await this.cronAudit.startExecution(jobName, {
+        scheduledTime: new Date().toISOString(),
+        timezone: 'America/Argentina/Buenos_Aires',
+      });
+
+      this.logger.log(
+        `🌅 Ejecutando verificación de partidos de hoy (11 AM)...`,
+      );
+
       const hasMatches = await this.pointsService.hasMatchesToday();
 
       if (hasMatches) {
@@ -218,14 +258,35 @@ export class MatchdaySchedulerService {
         );
         await this.deactivatePointsProcessing();
       }
+
+      // Completar auditoría exitosa
+      await this.cronAudit.completeExecution(executionId, {
+        previousValue: 'null', // No hay valor anterior para esta verificación
+        newValue: 'null', // No hay valor nuevo para esta verificación
+        recordsAffected: 0, // No hay registros afectados
+        metadata: {
+          hasMatchesToday: hasMatches,
+        },
+      });
     } catch (error) {
       this.logger.error(
         `❌ Error verificando partidos de hoy: ${error.message}`,
       );
 
+      // Marcar auditoría como fallida
+      if (executionId!) {
+        await this.cronAudit.failExecution(executionId, error, {
+          operation: 'check-matches-today',
+          phase: error.message.includes('hasMatchesToday')
+            ? 'check'
+            : 'database',
+        });
+      }
+
+      // Reportar a Sentry para monitoreo
       Sentry.withScope((scope) => {
         scope.setTag('service', 'matchday-scheduler');
-        scope.setTag('cron_job', 'check-matches-today');
+        scope.setTag('cron_job', jobName);
         scope.setLevel('error');
         Sentry.captureException(error);
       });
@@ -313,19 +374,55 @@ export class MatchdaySchedulerService {
   private async processPointsCronJob(): Promise<void> {
     if (!this.pointsProcessingActive) return;
 
-    this.logger.log('🎲 Ejecutando procesamiento de puntos...');
+    const jobName = 'process-points-dynamic';
+    let executionId: number;
 
     try {
-      await this.pointsService.processFinishedMatches();
+      // Iniciar auditoría
+      executionId = await this.cronAudit.startExecution(jobName, {
+        scheduledTime: new Date().toISOString(),
+        isAutomaticExecution: true,
+        activeHours: '15:00-01:00',
+      });
+
+      this.logger.log(
+        `🎲 Ejecutando procesamiento de puntos... (ID: ${executionId})`,
+      );
+
+      const result = await this.pointsService.processFinishedMatches();
+
+      // Completar auditoría exitosa
+      await this.cronAudit.completeExecution(executionId, {
+        previousValue: 'null', // Los puntos no tienen un valor "anterior"
+        newValue: 'null', // Los puntos no tienen un valor "nuevo"
+        recordsAffected: result?.processedCount || 0,
+        metadata: {
+          processedMatches: result?.processedMatches || 0,
+          processedPronostics: result?.processedCount || 0,
+          totalMatches: result?.totalMatches || 0,
+          matchday: result?.matchday || 0,
+        },
+      });
+
       this.logger.log('✅ Procesamiento de puntos completado');
     } catch (error) {
       this.logger.error(
         `❌ Error en procesamiento de puntos: ${error.message}`,
       );
 
+      // Marcar auditoría como fallida
+      if (executionId!) {
+        await this.cronAudit.failExecution(executionId, error, {
+          operation: 'process-points',
+          phase: error.message.includes('processFinishedMatches')
+            ? 'processing'
+            : 'database',
+        });
+      }
+
       Sentry.withScope((scope) => {
         scope.setTag('service', 'matchday-scheduler');
-        scope.setTag('cron_job', 'process-points');
+        scope.setTag('cron_job', jobName);
         scope.setLevel('error');
         Sentry.captureException(error);
       });
@@ -391,5 +488,66 @@ export class MatchdaySchedulerService {
 
   isCronEnabled(): boolean {
     return this._cronEnabled;
+  }
+
+  /**
+   * 🧹 Cron job semanal que limpia registros antiguos de auditoría
+   * Ejecuta todos los domingos a las 02:00
+   */
+  @Cron('0 2 * * 0', {
+    name: 'cleanup-audit-logs',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  })
+  async cleanupAuditLogsCronJob(): Promise<void> {
+    const jobName = 'cleanup-audit-logs';
+    let executionId: number;
+
+    try {
+      // Iniciar auditoría
+      executionId = await this.cronAudit.startExecution(jobName, {
+        scheduledTime: new Date().toISOString(),
+        timezone: 'America/Argentina/Buenos_Aires',
+        retentionDays: 30,
+      });
+
+      this.logger.log(
+        `🧹 Ejecutando limpieza de logs de auditoría... (ID: ${executionId})`,
+      );
+
+      const deletedCount = await this.cronAudit.cleanupOldExecutions();
+
+      // Completar auditoría exitosa
+      await this.cronAudit.completeExecution(executionId, {
+        previousValue: 'N/A',
+        newValue: 'N/A',
+        recordsAffected: deletedCount,
+        metadata: {
+          deletedRecords: deletedCount,
+          retentionDays: 30,
+          operation: 'cleanup',
+        },
+      });
+
+      this.logger.log(
+        `✅ Limpieza completada: ${deletedCount} registros eliminados`,
+      );
+    } catch (error) {
+      this.logger.error(`❌ Error en limpieza de auditoría: ${error.message}`);
+
+      // Marcar auditoría como fallida
+      if (executionId!) {
+        await this.cronAudit.failExecution(executionId, error, {
+          operation: 'cleanup-audit-logs',
+          phase: 'database-cleanup',
+        });
+      }
+
+      Sentry.withScope((scope) => {
+        scope.setTag('service', 'matchday-scheduler');
+        scope.setTag('cron_job', jobName);
+        scope.setLevel('error');
+        Sentry.captureException(error);
+      });
+    }
   }
 }
