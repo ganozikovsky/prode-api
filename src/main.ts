@@ -5,6 +5,9 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Puerto para Heroku
+  const port = process.env.PORT || 3000;
+
   // Configuración de Swagger
   const config = new DocumentBuilder()
     .setTitle('Prode API')
@@ -18,10 +21,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(3000);
-  console.log('🚀 Aplicación corriendo en http://localhost:3000');
-  console.log(
-    '📚 Documentación Swagger disponible en http://localhost:3000/api/docs',
-  );
+  await app.listen(port);
+  console.log(`🚀 Aplicación corriendo en http://localhost:${port}`);
 }
 bootstrap();
