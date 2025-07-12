@@ -18,11 +18,22 @@ async function bootstrap() {
   // Configurar CORS para el frontend
   app.enableCors({
     origin: [
+      'http://localhost:3000', // React/Next.js en desarrollo
       'http://localhost:3001', // React en desarrollo
       'http://localhost:5173', // Vite en desarrollo
       'http://localhost:4173', // Vite preview
+      'http://localhost:8080', // Vue.js en desarrollo
       process.env.FRONTEND_URL, // Producción
     ].filter(Boolean),
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Origin',
+      'X-Requested-With',
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'Bearer',
+    ],
     credentials: true,
   });
 
