@@ -4,25 +4,16 @@ import { Prisma } from '@prisma/client';
 export class CreatePronosticDto {
   @ApiProperty({
     description: 'ID externo del partido obtenido de la API de promiedos',
-    example: '12345',
+    example: 'edcgcdj',
     type: 'string',
   })
   externalId: string;
 
   @ApiProperty({
-    description: 'ID del usuario que hace el pronóstico',
-    example: 1,
-    type: 'number',
-  })
-  userId: number;
-
-  @ApiProperty({
     description: 'Predicción del usuario conteniendo marcadores y goleadores',
     example: {
-      homeScore: 2,
-      awayScore: 1,
-      homeScorers: ['Messi', 'Di Maria'],
-      awayScorers: ['Cavani'],
+      scores: [2, 1],
+      scorers: ['Messi', 'Di María'],
     },
     type: 'object',
   })

@@ -76,6 +76,8 @@ Accept: application/json
 # ===============================================
 
 ### 11. Crear pronóstico (requiere autenticación)
+# NOTA: Solo puedes crear UN pronóstico por partido
+# Si ya tienes uno, usa PATCH para editarlo
 POST {{host}}/pronostics
 Authorization: Bearer {{jwt_token}}
 Content-Type: application/json
@@ -120,6 +122,24 @@ Authorization: Bearer {{jwt_token}}
 @jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # ===============================================
+# ❌ POSIBLES ERRORES COMUNES
+# ===============================================
+
+### Error: Pronóstico duplicado (409 Conflict)
+# Si intentas crear un segundo pronóstico para el mismo partido:
+# {
+#   "statusCode": 409,
+#   "message": "Ya tienes un pronóstico para este partido. Puedes editarlo usando PATCH /pronostics/123"
+# }
+
+### Error: Token inválido (401 Unauthorized)
+# Si el JWT token está mal o expiró:
+# {
+#   "statusCode": 401,
+#   "message": "Unauthorized"
+# }
+
+# ===============================================
 # 💡 NOTAS IMPORTANTES
 # ===============================================
 
@@ -133,6 +153,12 @@ Authorization: Bearer {{jwt_token}}
 # - Todas las rutas de creación/edición requieren JWT
 # - Obtén el token con Google OAuth: /auth/google
 # - Incluye: Authorization: Bearer <token>
+# - NO incluyas userId en el JSON, se obtiene automáticamente del token
+
+# 🎲 PRONÓSTICOS:
+# - Solo UN pronóstico por partido por usuario
+# - Si ya tienes uno, usa PATCH /pronostics/:id para editarlo
+# - El userId se obtiene automáticamente del token JWT
 
 # 📊 ESTADOS DE PARTIDOS:
 # - enum: 1 = Programado, 2 = En vivo, 3 = Finalizado

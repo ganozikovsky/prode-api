@@ -36,7 +36,7 @@ export class PronosticController {
   @ApiOperation({
     summary: 'Crear nuevo pronóstico (requiere autenticación)',
     description:
-      'Crea un nuevo pronóstico para un partido específico. Solo usuarios autenticados pueden crear pronósticos.',
+      'Crea un nuevo pronóstico para un partido específico. Solo usuarios autenticados pueden crear pronósticos. Un usuario solo puede crear un pronóstico por partido.',
   })
   @ApiBody({ type: CreatePronosticDto })
   @ApiResponse({
@@ -45,16 +45,19 @@ export class PronosticController {
     schema: {
       example: {
         id: 1,
-        externalId: '12345',
+        externalId: 'edcgcdj',
         userId: 1,
         prediction: {
-          homeScore: 2,
-          awayScore: 1,
-          homeScorers: ['Messi', 'Di Maria'],
-          awayScorers: ['Cavani'],
+          scores: [2, 1],
+          scorers: ['Messi', 'Di María'],
         },
         createdAt: '2024-07-11T19:00:00.000Z',
         updatedAt: '2024-07-11T19:00:00.000Z',
+        user: {
+          id: 1,
+          name: 'Juan Pérez',
+          email: 'juan@ejemplo.com',
+        },
       },
     },
   })
@@ -66,15 +69,16 @@ export class PronosticController {
     status: 401,
     description: 'Token de autenticación requerido',
   })
+  @ApiResponse({
+    status: 409,
+    description:
+      'Ya tienes un pronóstico para este partido. Usa PATCH para editarlo.',
+  })
   async create(
     @Body() createPronosticDto: CreatePronosticDto,
     @CurrentUser() user: any,
   ) {
-    const pronosticData = {
-      ...createPronosticDto,
-      userId: user.id,
-    };
-    return this.pronosticService.create(pronosticData);
+    return this.pronosticService.create(createPronosticDto, user.id);
   }
 
   @Get()

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreatePronosticDto } from './dto/create-pronostic.dto';
@@ -12,11 +13,25 @@ import { Prisma } from '@prisma/client';
 export class PronosticService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPronosticDto: CreatePronosticDto) {
+  async create(createPronosticDto: CreatePronosticDto, userId: number) {
+    // Verificar si el usuario ya tiene un pronóstico para este partido
+    const existingPronostic = await this.prisma.pronostic.findFirst({
+      where: {
+        externalId: createPronosticDto.externalId,
+        userId: userId,
+      },
+    });
+
+    if (existingPronostic) {
+      throw new ConflictException(
+        `Ya tienes un pronóstico para este partido. Puedes editarlo usando PATCH /pronostics/${existingPronostic.id}`
+      );
+    }
+
     return this.prisma.pronostic.create({
       data: {
         externalId: createPronosticDto.externalId,
-        userId: createPronosticDto.userId,
+        userId: userId,
         prediction: createPronosticDto.prediction as Prisma.JsonObject,
       },
       include: {
