@@ -1,4 +1,4 @@
-import './newrelic';
+import '../newrelic';
 import * as Sentry from '@sentry/node';
 
 Sentry.init({
