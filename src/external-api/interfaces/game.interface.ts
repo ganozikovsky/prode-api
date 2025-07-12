@@ -71,3 +71,9 @@ export interface MatchdayResponse {
   externalIdPattern: string;
   databaseStatus: 'available' | 'unavailable'; // 🆕 Nuevo campo
 }
+
+// 🆕 Interfaz para respuesta agrupada por fecha
+export interface GroupedMatchdayResponse {
+  date: string;
+  matches: GameWithPronostics[];
+}

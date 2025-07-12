@@ -16,6 +16,10 @@ import {
 import { PromiedosService } from './promiedos.service';
 import { CronAuditService } from './services/cron-audit.service';
 import { MatchdaySchedulerService } from './services/matchday-scheduler.service';
+import {
+  GameWithPronostics,
+  GroupedMatchdayResponse,
+} from './interfaces/game.interface';
 
 @ApiTags('external-api')
 @Controller('promiedos')
@@ -26,59 +30,115 @@ export class PromiedosController {
     private readonly scheduler: MatchdaySchedulerService,
   ) {}
 
+  /**
+   * 📅 Función helper para parsear fechas del formato "13-07-2025 21:00"
+   */
+  private parseMatchDate(dateString: string): Date {
+    if (!dateString) return new Date();
+
+    const [datePart] = dateString.split(' ');
+    const [day, month, year] = datePart.split('-');
+    return new Date(`${year}-${month}-${day}`);
+  }
+
+  /**
+   * 🗓️ Función helper para agrupar partidos por fecha
+   */
+  private groupMatchesByDate(
+    games: GameWithPronostics[],
+  ): GroupedMatchdayResponse[] {
+    const groupedGames = new Map<string, GameWithPronostics[]>();
+
+    games.forEach((game) => {
+      const gameDate = this.parseMatchDate(game.start_time);
+      const dateKey = gameDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      if (!groupedGames.has(dateKey)) {
+        groupedGames.set(dateKey, []);
+      }
+      groupedGames.get(dateKey)!.push(game);
+    });
+
+    // Convertir a array y ordenar por fecha
+    const result = Array.from(groupedGames.entries()).map(
+      ([date, matches]) => ({
+        date: new Date(date).toISOString(),
+        matches: matches.sort((a, b) => {
+          // Ordenar partidos por hora dentro de cada fecha
+          const timeA = a.start_time.split(' ')[1] || '00:00';
+          const timeB = b.start_time.split(' ')[1] || '00:00';
+          return timeA.localeCompare(timeB);
+        }),
+      }),
+    );
+
+    // Ordenar por fecha
+    return result.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
+  }
+
   @Get('lpf/current')
   @ApiOperation({
-    summary: '🎯 Obtener la fecha actual automáticamente',
+    summary: '🎯 Obtener la fecha actual automáticamente (agrupada por fecha)',
     description:
       'Calcula automáticamente qué fecha mostrar basándose en el estado de los partidos. ' +
       'Usa inteligencia artificial para determinar si mostrar la fecha en curso, ' +
-      'la próxima fecha programada, o la última fecha con información válida.',
+      'la próxima fecha programada, o la última fecha con información válida. ' +
+      'Los partidos se devuelven agrupados por fecha de juego.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Datos de la fecha actual calculada automáticamente',
+    description: 'Datos de la fecha actual agrupados por fecha',
     schema: {
-      example: {
-        round: 1,
-        roundName: 'Fecha 1',
-        totalGames: 14,
-        games: [
-          {
-            id: 'game_id_123',
-            stage_round_name: 'Fecha 1',
-            winner: 0,
-            teams: [
-              {
-                name: 'River Plate',
-                short_name: 'RIV',
-                id: 'hhij',
-                // ... otros campos
+      example: [
+        {
+          date: '2025-07-13T00:00:00.000Z',
+          matches: [
+            {
+              id: 'game_id_123',
+              stage_round_name: 'Fecha 1',
+              winner: 0,
+              teams: [
+                {
+                  name: 'River Plate',
+                  short_name: 'RIV',
+                  id: 'hhij',
+                  // ... otros campos
+                },
+              ],
+              scores: [2, 1],
+              status: {
+                enum: 1,
+                name: 'Prog.',
+                short_name: 'Prog.',
+                symbol_name: 'Prog.',
               },
-            ],
-            scores: [2, 1],
-            status: {
-              enum: 1,
-              name: 'Prog.',
-              short_name: 'Prog.',
-              symbol_name: 'Prog.',
+              start_time: '13-07-2025 21:00',
+              pronostics: [
+                {
+                  id: 1,
+                  userId: 1,
+                  prediction: { scores: [2, 1], scorers: ['Messi'] },
+                  user: { id: 1, name: 'Juan', email: 'juan@test.com' },
+                },
+              ],
+              totalPronostics: 5,
             },
-            start_time: '13-07-2025 21:00',
-            pronostics: [
-              {
-                id: 1,
-                userId: 1,
-                prediction: { scores: [2, 1], scorers: ['Messi'] },
-                user: { id: 1, name: 'Juan', email: 'juan@test.com' },
-              },
-            ],
-            totalPronostics: 5,
-          },
-        ],
-      },
+          ],
+        },
+        {
+          date: '2025-07-14T00:00:00.000Z',
+          matches: [
+            // ... más partidos
+          ],
+        },
+      ],
     },
   })
   async getCurrentMatchday() {
-    return this.promiedosService.getMatchday();
+    const matchdayData = await this.promiedosService.getMatchday();
+    return this.groupMatchesByDate(matchdayData.games);
   }
 
   @Get('lpf/current/round')
