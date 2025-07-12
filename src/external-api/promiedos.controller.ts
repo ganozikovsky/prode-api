@@ -1,5 +1,11 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { PromiedosService } from './promiedos.service';
 
 @ApiTags('external-api')
@@ -9,47 +15,80 @@ export class PromiedosController {
 
   @Get('lpf/:roundId')
   @ApiOperation({
-    summary: 'Obtener información de fecha de LPF',
+    summary: 'Obtener información completa de una fecha',
     description:
-      'Obtiene los partidos y datos de una fecha específica de la Liga Profesional de Fútbol desde promiedos.com.ar',
+      'Obtiene los partidos de una fecha específica con sus pronósticos asociados',
   })
   @ApiParam({
     name: 'roundId',
     type: 'number',
-    description: 'Número de la fecha/jornada',
+    description: 'Número de la fecha/jornada (1-16)',
     example: 1,
   })
   @ApiResponse({
     status: 200,
-    description: 'Información de la fecha obtenida exitosamente',
+    description: 'Datos de la fecha con pronósticos',
     schema: {
       example: {
-        roundId: 1,
-        matches: [
+        round: 1,
+        roundName: 'Fecha 1',
+        totalGames: 14,
+        games: [
           {
-            id: '12345',
-            homeTeam: 'Boca Juniors',
-            awayTeam: 'River Plate',
-            date: '2024-07-15T21:00:00Z',
-            status: 'scheduled',
+            id: 'game_id_123',
+            stage_round_name: 'Fecha 1',
+            winner: 0,
+            teams: [
+              {
+                name: 'River Plate',
+                short_name: 'RIV',
+                id: 'hhij',
+                // ... otros campos
+              },
+            ],
+            scores: [2, 1],
+            pronostics: [
+              {
+                id: 1,
+                userId: 1,
+                prediction: { scores: [2, 1], scorers: ['Messi'] },
+                user: { id: 1, name: 'Juan', email: 'juan@test.com' },
+              },
+            ],
+            totalPronostics: 5,
           },
         ],
       },
     },
   })
-  @ApiResponse({
-    status: 400,
-    description: 'ID de fecha inválido',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Fecha no encontrada',
-  })
-  @ApiResponse({
-    status: 503,
-    description: 'Error al conectar con la API externa',
-  })
-  getLeagueInfo(@Param('roundId', ParseIntPipe) roundId: number) {
+  async getMatchday(@Param('roundId', ParseIntPipe) roundId: number) {
     return this.promiedosService.getMatchday(roundId);
+  }
+
+  @Get('lpf/crest/:teamId')
+  @ApiOperation({
+    summary: 'Obtener URL del escudo del equipo',
+    description:
+      'Devuelve la URL directa del escudo del equipo desde promiedos.com.ar',
+  })
+  @ApiParam({
+    name: 'teamId',
+    type: 'string',
+    description: 'ID del equipo (formato string, ej: hhij)',
+    example: 'hhij',
+  })
+  @ApiQuery({
+    name: 'size',
+    type: 'number',
+    description: 'Tamaño de la imagen (1-5)',
+    example: 1,
+    required: false,
+  })
+  getTeamCrest(
+    @Param('teamId') teamId: string,
+    @Query('size') size: string = '1',
+  ) {
+    const sizeNumber = parseInt(size, 10) || 1;
+    return this.promiedosService.getTeamCrest(teamId, sizeNumber);
   }
 }

@@ -1,18 +1,21 @@
+// Interfaces base de la API de Promiedos
+export interface Colors {
+  color: string;
+  text_color: string;
+}
+
 export interface Team {
-  id: string;
   name: string;
   short_name: string;
   url_name: string;
+  id: string;
   country_id: string;
   allow_open: boolean;
-  colors: {
-    color: string;
-    text_color: string;
-  };
+  colors: Colors;
   red_cards: number;
 }
 
-export interface GameStatus {
+export interface Status {
   enum: number;
   name: string;
   short_name: string;
@@ -25,7 +28,8 @@ export interface Game {
   winner: number;
   teams: Team[];
   url_name: string;
-  status: GameStatus;
+  scores: number[];
+  status: Status;
   start_time: string;
   game_time: number;
   game_time_to_display: string;
@@ -37,36 +41,33 @@ export interface PromiedosApiResponse {
   games: Game[];
 }
 
-export interface ProcessedGame {
-  id: string;
-  date: string;
-  home: {
-    id: string;
-    name: string;
-    shortName: string;
-    colors: {
-      color: string;
-      textColor: string;
-    };
-  };
-  away: {
-    id: string;
-    name: string;
-    shortName: string;
-    colors: {
-      color: string;
-      textColor: string;
-    };
-  };
-  status: 'scheduled' | 'playing' | 'finished';
-  winner: number;
-  round: string;
+// Interfaces para incluir pronósticos
+export interface UserPronostic {
+  id: number;
+  name: string;
+  email: string;
 }
 
-export interface ProcessedRoundData {
+export interface PronosticData {
+  id: number;
+  externalId: string;
+  userId: number;
+  prediction: any; // JSON object
+  createdAt: Date;
+  updatedAt: Date;
+  user: UserPronostic;
+}
+
+export interface GameWithPronostics extends Game {
+  pronostics: PronosticData[];
+  totalPronostics: number;
+}
+
+export interface MatchdayResponse {
   round: number;
   roundName: string;
   totalGames: number;
-  games: ProcessedGame[];
-  externalId: string;
+  games: GameWithPronostics[];
+  externalIdPattern: string;
+  databaseStatus: 'available' | 'unavailable'; // 🆕 Nuevo campo
 }
