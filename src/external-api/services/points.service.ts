@@ -5,6 +5,10 @@ import { PromiedosService } from '../promiedos.service';
 interface GameResult {
   id: string;
   scores: number[];
+  scorers?: {
+    local?: string;
+    visitor?: string;
+  };
   status: {
     enum: number; // 1=Programado, 2=En vivo, 3=Finalizado
   };
@@ -12,15 +16,20 @@ interface GameResult {
 
 interface PronosticPrediction {
   scores: number[];
-  scorers?: string[];
+  scorers?: {
+    local?: string;
+    visitor?: string;
+  };
 }
 
 interface PointsConfiguration {
   exactResult: number; // 3 puntos
   onlyResult: number; // 1 punto
+  scorerLocal: number; // 5 puntos por goleador local
+  scorerVisitor: number; // 5 puntos por goleador visitante
 }
 
-type PointType = 'exact' | 'result' | 'none';
+type PointType = 'exact' | 'result' | 'scorers' | 'exact+scorers' | 'result+scorers' | 'none';
 
 @Injectable()
 export class PointsService {
@@ -30,6 +39,8 @@ export class PointsService {
   private readonly pointsConfig: PointsConfiguration = {
     exactResult: 3,
     onlyResult: 1,
+    scorerLocal: 5,
+    scorerVisitor: 5,
   };
 
   constructor(
@@ -262,8 +273,18 @@ export class PointsService {
       try {
         const prediction =
           pronostic.prediction as unknown as PronosticPrediction;
-        const points = this.calculatePoints(game.scores, prediction.scores);
-        const pointType = this.getPointType(game.scores, prediction.scores);
+        const points = this.calculatePoints(
+          game.scores, 
+          prediction.scores,
+          game.scorers,
+          prediction.scorers
+        );
+        const pointType = this.getPointType(
+          game.scores, 
+          prediction.scores,
+          game.scorers,
+          prediction.scorers
+        );
 
         this.logger.debug(
           `👤 ${pronostic.user.name}: Pronóstico ${JSON.stringify(prediction.scores)} vs Real ${JSON.stringify(game.scores)} = ${points} puntos`,
@@ -384,8 +405,18 @@ export class PointsService {
       try {
         const prediction =
           pronostic.prediction as unknown as PronosticPrediction;
-        const newPoints = this.calculatePoints(game.scores, prediction.scores);
-        const pointType = this.getPointType(game.scores, prediction.scores);
+        const newPoints = this.calculatePoints(
+          game.scores, 
+          prediction.scores,
+          game.scorers,
+          prediction.scorers
+        );
+        const pointType = this.getPointType(
+          game.scores, 
+          prediction.scores,
+          game.scorers,
+          prediction.scorers
+        );
         const previousLivePoints = pronostic.livePoints;
 
         // Calcular la diferencia de puntos
@@ -459,6 +490,8 @@ export class PointsService {
   private calculatePoints(
     realScores: number[],
     predictedScores: number[],
+    realScorers?: { local?: string; visitor?: string },
+    predictedScorers?: { local?: string; visitor?: string },
   ): number {
     if (
       !realScores ||
@@ -468,6 +501,8 @@ export class PointsService {
     ) {
       return 0;
     }
+
+    let totalPoints = 0;
 
     const realResult = this.getMatchResult(realScores);
     const predictedResult = this.getMatchResult(predictedScores);
@@ -480,20 +515,50 @@ export class PointsService {
       this.logger.debug(
         `🎯 Resultado exacto: ${this.pointsConfig.exactResult} puntos`,
       );
-      return this.pointsConfig.exactResult;
+      totalPoints += this.pointsConfig.exactResult;
     }
-
     // Solo resultado (ganador/empate correcto)
-    if (realResult === predictedResult) {
+    else if (realResult === predictedResult) {
       this.logger.debug(
         `⚽ Solo resultado: ${this.pointsConfig.onlyResult} punto`,
       );
-      return this.pointsConfig.onlyResult;
+      totalPoints += this.pointsConfig.onlyResult;
     }
 
-    // Sin puntos
-    this.logger.debug(`❌ Sin puntos`);
-    return 0;
+    // Calcular puntos por goleadores
+    if (realScorers && predictedScorers) {
+      // Goleador local
+      if (
+        realScorers.local &&
+        predictedScorers.local &&
+        realScorers.local.toLowerCase() === predictedScorers.local.toLowerCase()
+      ) {
+        this.logger.debug(
+          `⚽ Goleador local acertado: ${this.pointsConfig.scorerLocal} puntos`,
+        );
+        totalPoints += this.pointsConfig.scorerLocal;
+      }
+
+      // Goleador visitante
+      if (
+        realScorers.visitor &&
+        predictedScorers.visitor &&
+        realScorers.visitor.toLowerCase() === predictedScorers.visitor.toLowerCase()
+      ) {
+        this.logger.debug(
+          `⚽ Goleador visitante acertado: ${this.pointsConfig.scorerVisitor} puntos`,
+        );
+        totalPoints += this.pointsConfig.scorerVisitor;
+      }
+    }
+
+    if (totalPoints === 0) {
+      this.logger.debug(`❌ Sin puntos`);
+    } else {
+      this.logger.debug(`💰 Total: ${totalPoints} puntos`);
+    }
+
+    return totalPoints;
   }
 
   /**
@@ -506,11 +571,13 @@ export class PointsService {
   }
 
   /**
-   * Determina el tipo de puntos otorgados
+   * Determina el tipo de puntos obtenidos
    */
   private getPointType(
     realScores: number[],
     predictedScores: number[],
+    realScorers?: { local?: string; visitor?: string },
+    predictedScorers?: { local?: string; visitor?: string },
   ): PointType {
     if (
       !realScores ||
@@ -521,20 +588,42 @@ export class PointsService {
       return 'none';
     }
 
-    // Resultado exacto (scores exactos)
+    const realResult = this.getMatchResult(realScores);
+    const predictedResult = this.getMatchResult(predictedScores);
+    
+    let hasScorersPoints = false;
+    
+    // Verificar si hay puntos por goleadores
+    if (realScorers && predictedScorers) {
+      const localScorerCorrect = 
+        realScorers.local &&
+        predictedScorers.local &&
+        realScorers.local.toLowerCase() === predictedScorers.local.toLowerCase();
+        
+      const visitorScorerCorrect = 
+        realScorers.visitor &&
+        predictedScorers.visitor &&
+        realScorers.visitor.toLowerCase() === predictedScorers.visitor.toLowerCase();
+        
+      hasScorersPoints = localScorerCorrect || visitorScorerCorrect;
+    }
+
+    // Resultado exacto
     if (
       realScores[0] === predictedScores[0] &&
       realScores[1] === predictedScores[1]
     ) {
-      return 'exact';
+      return hasScorersPoints ? 'exact+scorers' : 'exact';
     }
 
-    // Solo resultado (ganador/empate correcto)
-    const realResult = this.getMatchResult(realScores);
-    const predictedResult = this.getMatchResult(predictedScores);
-
+    // Solo resultado
     if (realResult === predictedResult) {
-      return 'result';
+      return hasScorersPoints ? 'result+scorers' : 'result';
+    }
+
+    // Solo goleadores
+    if (hasScorersPoints) {
+      return 'scorers';
     }
 
     return 'none';
