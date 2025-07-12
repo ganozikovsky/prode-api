@@ -162,6 +162,97 @@ GET /promiedos/monitoring/cron-jobs/execute/update-current-matchday
 ```
 **Propósito**: Ejecutar cron jobs manualmente para testing
 
+## 🔍 **NUEVO: Auditoría Granular de Puntuación**
+
+### 🎯 **Qué se Registra Ahora**
+
+Cada vez que el cron job `process-points-dynamic` se ejecuta, ahora captura:
+
+#### 1. **Detalles por Usuario**
+```json
+{
+  "userId": 123,
+  "userName": "Juan Pérez",
+  "gameId": "partido-123",
+  "predictedScores": [2, 1],
+  "realScores": [2, 1],
+  "pointsAwarded": 3,
+  "pointType": "exact",
+  "tournamentsAffected": [1, 5, 7]
+}
+```
+
+#### 2. **Detalles por Partido**
+```json
+{
+  "gameId": "partido-123",
+  "realScores": [2, 1],
+  "pronosticsCount": 15,
+  "pointsDistributed": 22
+}
+```
+
+#### 3. **Resumen Ejecutivo**
+```json
+{
+  "usersAffected": 15,
+  "totalPointsAwarded": 22,
+  "exactPredictions": 3,
+  "resultPredictions": 7,
+  "failedPredictions": 5
+}
+```
+
+### 🔍 **Cómo Acceder a los Detalles**
+
+#### En Base de Datos:
+```sql
+-- Ver detalles de la última ejecución
+SELECT 
+  job_name,
+  metadata->>'summary' as summary,
+  metadata->'userPointsDetails' as user_details,
+  metadata->'gamesProcessed' as games_processed,
+  started_at
+FROM cron_job_executions 
+WHERE job_name = 'process-points-dynamic'
+ORDER BY started_at DESC 
+LIMIT 1;
+```
+
+#### En Papertrail buscar:
+```
+"usuarios recibieron puntos"  # Resumen de usuarios afectados
+"partidos finalizados"        # Partidos procesados
+"pronósticos procesados"      # Cantidad total procesada
+```
+
+### 📋 **Ejemplo de Auditoría Completa**
+
+Cuando un cron job procesa puntos, ahora sabes exactamente:
+
+1. **Qué usuarios recibieron puntos**: María obtuvo 3 puntos por resultado exacto
+2. **En qué partidos**: River vs Boca (2-1), exactamente como predijo
+3. **En qué torneos**: Afectó sus puntos en torneos #1, #5, y #7  
+4. **Cuándo ocurrió**: 2025-01-15 15:35:22 UTC
+5. **Tiempo de ejecución**: 2,134ms
+6. **Rendimiento**: 15 usuarios procesados, 22 puntos distribuidos
+
+### 🎨 **Visualización en New Relic**
+
+#### Query NRQL para estadísticas:
+```sql
+-- Puntos promedio por ejecución
+SELECT average(totalPointsAwarded) 
+FROM Metric 
+WHERE metricName = 'Cron/process-points-dynamic/TotalPoints'
+
+-- Usuarios más activos
+SELECT count(*) 
+FROM Metric 
+WHERE metricName = 'Cron/process-points-dynamic/UsersAffected'
+```
+
 ## ⚠️ **Alertas y Problemas Comunes**
 
 ### 🔴 Alertas Críticas (Configurar en New Relic)

@@ -77,7 +77,8 @@ export class MatchdayDataValidator {
 
     try {
       // Extraer hora del formato "DD-MM-YYYY HH:MM"
-      const timeMatch = startTime.match(/(\d{1,2}):(\d{2})/);
+      const timeRegex = /(\d{1,2}):(\d{2})/;
+      const timeMatch = timeRegex.exec(startTime);
       if (!timeMatch) return false;
 
       const hour = parseInt(timeMatch[1]);

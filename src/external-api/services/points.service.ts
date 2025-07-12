@@ -20,6 +20,8 @@ interface PointsConfiguration {
   onlyResult: number; // 1 punto
 }
 
+type PointType = 'exact' | 'result' | 'none';
+
 @Injectable()
 export class PointsService {
   private readonly logger = new Logger(PointsService.name);
@@ -45,6 +47,23 @@ export class PointsService {
     processedMatches: number;
     totalMatches: number;
     matchday: number;
+    // Detalles granulares para auditoría
+    userPointsDetails: Array<{
+      userId: number;
+      userName: string;
+      gameId: string;
+      predictedScores: number[];
+      realScores: number[];
+      pointsAwarded: number;
+      pointType: PointType;
+      tournamentsAffected: number[];
+    }>;
+    gamesProcessed: Array<{
+      gameId: string;
+      realScores: number[];
+      pronosticsCount: number;
+      pointsDistributed: number;
+    }>;
   }> {
     this.logger.log('🔍 Iniciando procesamiento de partidos finalizados...');
 
@@ -62,6 +81,10 @@ export class PointsService {
 
       const totalMatches = currentMatchdayData.games.length;
 
+      // Arrays para auditoría detallada
+      const userPointsDetails = [];
+      const gamesProcessed = [];
+
       if (finishedGames.length === 0) {
         this.logger.log('⏸️ No hay partidos finalizados para procesar');
         return {
@@ -69,6 +92,8 @@ export class PointsService {
           processedMatches: 0,
           totalMatches,
           matchday: currentMatchday,
+          userPointsDetails,
+          gamesProcessed,
         };
       }
 
@@ -81,18 +106,37 @@ export class PointsService {
 
       // Procesar cada partido finalizado
       for (const game of finishedGames) {
-        const processed = await this.processGamePronostics(
+        const gameResult = await this.processGamePronosticsDetailed(
           game,
           currentMatchday,
         );
-        if (processed > 0) {
+
+        if (gameResult.processedCount > 0) {
           processedMatches++;
+
+          // Agregar detalles del juego
+          gamesProcessed.push({
+            gameId: game.id,
+            realScores: game.scores,
+            pronosticsCount: gameResult.processedCount,
+            pointsDistributed: gameResult.userDetails.reduce(
+              (sum, detail) => sum + detail.pointsAwarded,
+              0,
+            ),
+          });
+
+          // Agregar detalles de usuarios
+          userPointsDetails.push(...gameResult.userDetails);
         }
-        totalProcessed += processed;
+
+        totalProcessed += gameResult.processedCount;
       }
 
       this.logger.log(
         `✅ Procesamiento completado: ${totalProcessed} pronósticos procesados`,
+      );
+      this.logger.log(
+        `📊 Detalles: ${userPointsDetails.length} usuarios recibieron puntos en ${gamesProcessed.length} partidos`,
       );
 
       return {
@@ -100,6 +144,8 @@ export class PointsService {
         processedMatches,
         totalMatches,
         matchday: currentMatchday,
+        userPointsDetails,
+        gamesProcessed,
       };
     } catch (error) {
       this.logger.error('❌ Error procesando partidos finalizados:', error);
@@ -108,12 +154,24 @@ export class PointsService {
   }
 
   /**
-   * Procesa los pronósticos de un partido específico
+   * Procesa los pronósticos de un partido específico con detalles granulares
    */
-  private async processGamePronostics(
+  private async processGamePronosticsDetailed(
     game: GameResult,
     matchday: number,
-  ): Promise<number> {
+  ): Promise<{
+    processedCount: number;
+    userDetails: Array<{
+      userId: number;
+      userName: string;
+      gameId: string;
+      predictedScores: number[];
+      realScores: number[];
+      pointsAwarded: number;
+      pointType: PointType;
+      tournamentsAffected: number[];
+    }>;
+  }> {
     // Buscar pronósticos no procesados para este partido
     const unprocessedPronostics = await this.prisma.pronostic.findMany({
       where: {
@@ -130,11 +188,16 @@ export class PointsService {
       },
     });
 
+    const userDetails = [];
+
     if (unprocessedPronostics.length === 0) {
       this.logger.debug(
         `⏭️ No hay pronósticos sin procesar para partido ${game.id}`,
       );
-      return 0;
+      return {
+        processedCount: 0,
+        userDetails,
+      };
     }
 
     this.logger.log(
@@ -148,6 +211,7 @@ export class PointsService {
         const prediction =
           pronostic.prediction as unknown as PronosticPrediction;
         const points = this.calculatePoints(game.scores, prediction.scores);
+        const pointType = this.getPointType(game.scores, prediction.scores);
 
         this.logger.debug(
           `👤 ${pronostic.user.name}: Pronóstico ${JSON.stringify(prediction.scores)} vs Real ${JSON.stringify(game.scores)} = ${points} puntos`,
@@ -159,6 +223,8 @@ export class PointsService {
             where: { userId: pronostic.userId },
             select: { tournamentId: true },
           });
+
+        const tournamentsAffected = userTournaments.map((t) => t.tournamentId);
 
         // Actualizar puntos en todos los torneos del usuario
         for (const tournament of userTournaments) {
@@ -176,6 +242,18 @@ export class PointsService {
           data: { processed: true },
         });
 
+        // Agregar detalles del usuario para auditoría
+        userDetails.push({
+          userId: pronostic.userId,
+          userName: pronostic.user.name,
+          gameId: game.id,
+          predictedScores: prediction.scores,
+          realScores: game.scores,
+          pointsAwarded: points,
+          pointType,
+          tournamentsAffected,
+        });
+
         processedCount++;
       } catch (error) {
         this.logger.error(
@@ -185,7 +263,10 @@ export class PointsService {
       }
     }
 
-    return processedCount;
+    return {
+      processedCount,
+      userDetails,
+    };
   }
 
   /**
@@ -238,6 +319,41 @@ export class PointsService {
     if (scores[0] > scores[1]) return 'home';
     if (scores[1] > scores[0]) return 'away';
     return 'draw';
+  }
+
+  /**
+   * Determina el tipo de puntos otorgados
+   */
+  private getPointType(
+    realScores: number[],
+    predictedScores: number[],
+  ): PointType {
+    if (
+      !realScores ||
+      !predictedScores ||
+      realScores.length !== 2 ||
+      predictedScores.length !== 2
+    ) {
+      return 'none';
+    }
+
+    // Resultado exacto (scores exactos)
+    if (
+      realScores[0] === predictedScores[0] &&
+      realScores[1] === predictedScores[1]
+    ) {
+      return 'exact';
+    }
+
+    // Solo resultado (ganador/empate correcto)
+    const realResult = this.getMatchResult(realScores);
+    const predictedResult = this.getMatchResult(predictedScores);
+
+    if (realResult === predictedResult) {
+      return 'result';
+    }
+
+    return 'none';
   }
 
   /**

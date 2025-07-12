@@ -82,7 +82,7 @@ export class MatchdaySchedulerService {
       this.logger.error(`❌ Error en cron job ${jobName}: ${error.message}`);
 
       // Marcar auditoría como fallida
-      if (executionId!) {
+      if (executionId) {
         await this.cronAudit.failExecution(executionId, error, {
           operation: 'update-current-matchday',
           phase: error.message.includes('calculate')
@@ -274,7 +274,7 @@ export class MatchdaySchedulerService {
       );
 
       // Marcar auditoría como fallida
-      if (executionId!) {
+      if (executionId) {
         await this.cronAudit.failExecution(executionId, error, {
           operation: 'check-matches-today',
           phase: error.message.includes('hasMatchesToday')
@@ -401,6 +401,29 @@ export class MatchdaySchedulerService {
           processedPronostics: result?.processedCount || 0,
           totalMatches: result?.totalMatches || 0,
           matchday: result?.matchday || 0,
+          // Detalles granulares para auditoría completa
+          userPointsDetails: result?.userPointsDetails || [],
+          gamesProcessed: result?.gamesProcessed || [],
+          summary: {
+            usersAffected: result?.userPointsDetails?.length || 0,
+            totalPointsAwarded:
+              result?.userPointsDetails?.reduce(
+                (sum, detail) => sum + detail.pointsAwarded,
+                0,
+              ) || 0,
+            exactPredictions:
+              result?.userPointsDetails?.filter(
+                (detail) => detail.pointType === 'exact',
+              ).length || 0,
+            resultPredictions:
+              result?.userPointsDetails?.filter(
+                (detail) => detail.pointType === 'result',
+              ).length || 0,
+            failedPredictions:
+              result?.userPointsDetails?.filter(
+                (detail) => detail.pointType === 'none',
+              ).length || 0,
+          },
         },
       });
 
@@ -411,7 +434,7 @@ export class MatchdaySchedulerService {
       );
 
       // Marcar auditoría como fallida
-      if (executionId!) {
+      if (executionId) {
         await this.cronAudit.failExecution(executionId, error, {
           operation: 'process-points',
           phase: error.message.includes('processFinishedMatches')
@@ -535,7 +558,7 @@ export class MatchdaySchedulerService {
       this.logger.error(`❌ Error en limpieza de auditoría: ${error.message}`);
 
       // Marcar auditoría como fallida
-      if (executionId!) {
+      if (executionId) {
         await this.cronAudit.failExecution(executionId, error, {
           operation: 'cleanup-audit-logs',
           phase: 'database-cleanup',
