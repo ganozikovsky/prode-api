@@ -70,7 +70,7 @@ export class CronAuditService {
       const executionTimeMs = Date.now() - execution.startedAt.getTime();
       const hasChanges = result.previousValue !== result.newValue;
 
-      const updatedExecution = await this.prisma.cronJobExecution.update({
+      await this.prisma.cronJobExecution.update({
         where: { id: executionId },
         data: {
           status: 'completed',
@@ -80,8 +80,12 @@ export class CronAuditService {
           newValue: result.newValue,
           recordsAffected: result.recordsAffected || 0,
           metadata: {
-            ...execution.metadata,
-            ...result.metadata,
+            ...(execution.metadata && typeof execution.metadata === 'object'
+              ? execution.metadata
+              : {}),
+            ...(result.metadata && typeof result.metadata === 'object'
+              ? result.metadata
+              : {}),
             hasChanges,
           },
         },
@@ -145,7 +149,7 @@ export class CronAuditService {
 
       const executionTimeMs = Date.now() - execution.startedAt.getTime();
 
-      const updatedExecution = await this.prisma.cronJobExecution.update({
+      await this.prisma.cronJobExecution.update({
         where: { id: executionId },
         data: {
           status: 'failed',
@@ -153,8 +157,10 @@ export class CronAuditService {
           executionTimeMs,
           errorMessage: error.message,
           metadata: {
-            ...execution.metadata,
-            ...metadata,
+            ...(execution.metadata && typeof execution.metadata === 'object'
+              ? execution.metadata
+              : {}),
+            ...(metadata && typeof metadata === 'object' ? metadata : {}),
             errorStack: error.stack,
           },
         },
