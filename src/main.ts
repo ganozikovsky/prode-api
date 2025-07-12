@@ -32,6 +32,7 @@ async function bootstrap() {
   // Configuración de Swagger
   const config = new DocumentBuilder()
     .setTitle('Prode API')
+    .addBearerAuth()
     .setDescription('API para sistema de pronósticos deportivos')
     .setVersion('1.0')
     .addTag('users', 'Operaciones relacionadas con usuarios')

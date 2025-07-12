@@ -47,7 +47,7 @@ POST {{host}}/auth/google/verify
 Content-Type: application/json
 
 {
-  "token": "ya29.a0AcM612..."
+  "credential": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjZmNzI1YTdkZjU5ZWQ..."
 }
 
 ### 8. Obtener perfil de usuario autenticado
