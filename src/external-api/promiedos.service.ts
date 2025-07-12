@@ -7,6 +7,7 @@ import {
   MatchdayResponse,
   PromiedosApiResponse,
 } from './interfaces/game.interface';
+import * as Sentry from '@sentry/node';
 
 @Injectable()
 export class PromiedosService {
@@ -79,6 +80,14 @@ export class PromiedosService {
         databaseStatus: totalPronostics > 0 ? 'available' : 'unavailable',
       };
     } catch (error) {
+      // Reportar error a Sentry con contexto
+      Sentry.withScope((scope) => {
+        scope.setTag('service', 'promiedos');
+        scope.setContext('matchday', { roundId });
+        scope.setLevel('error');
+        Sentry.captureException(error);
+      });
+
       // Solo fallar si la API externa falla
       this.logger.error(
         `❌ Error crítico en API externa para fecha ${roundId}: ${error.message}`,
