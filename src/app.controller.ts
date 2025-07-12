@@ -12,6 +12,13 @@ export class AppController {
       description: 'API para pronósticos deportivos',
       version: '1.0.0',
       endpoints: {
+        auth: {
+          'GET /auth/google': 'Iniciar login con Google',
+          'GET /auth/google/callback': 'Callback de Google (automático)',
+          'POST /auth/google/verify': 'Verificar token de Google desde frontend',
+          'GET /auth/profile':
+            'Obtener perfil del usuario autenticado (requiere JWT)',
+        },
         users: {
           'POST /users': 'Crear usuario',
           'GET /users': 'Obtener todos los usuarios',
@@ -27,12 +34,11 @@ export class AppController {
           'PATCH /pronostics/:id': 'Actualizar pronóstico',
           'DELETE /pronostics/:id': 'Eliminar pronóstico',
         },
-        promiedos: {
-          'GET /promiedos/league/:leagueCode/:tournamentId/:roundNumber/:seasonId':
-            'Obtener partidos de Promiedos',
-          'GET /promiedos/external-id/:leagueCode/:tournamentId/:roundNumber/:seasonId':
-            'Generar ID externo',
-        },
+        promiedos: {},
+      },
+      authentication: {
+        message: '🔐 Autenticación implementada con Google OAuth',
+        instructions: 'Ver GOOGLE_AUTH_SETUP.md para configuración',
       },
     };
   }

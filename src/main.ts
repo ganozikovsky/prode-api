@@ -15,6 +15,17 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Configurar CORS para el frontend
+  app.enableCors({
+    origin: [
+      'http://localhost:3001', // React en desarrollo
+      'http://localhost:5173', // Vite en desarrollo
+      'http://localhost:4173', // Vite preview
+      process.env.FRONTEND_URL, // Producción
+    ].filter(Boolean),
+    credentials: true,
+  });
+
   // Puerto para Heroku
   const port = process.env.PORT || 3000;
 

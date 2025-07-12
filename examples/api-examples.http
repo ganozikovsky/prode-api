@@ -1,105 +1,264 @@
-### Prode API - Ejemplos de uso
+### === EJEMPLOS DE API - PRODE API ===
 
-### 1. Obtener información de la API
-GET http://localhost:3000
+# ===============================================
+# 🎯 FECHAS AUTOMÁTICAS (NUEVAS FUNCIONALIDADES)
+# ===============================================
 
-### 2. Obtener información de la Liga Profesional Argentina
-GET http://localhost:3000/promiedos/league/info
+### 1. 🧠 Obtener fecha actual automáticamente (RECOMENDADO)
+# Esta es la ruta principal que deberías usar en tu frontend
+# Calcula automáticamente qué fecha mostrar según el estado de los partidos
+GET {{host}}/promiedos/lpf/current
+Accept: application/json
 
-### 3. Crear un usuario
-POST http://localhost:3000/users
+### 2. 🔢 Obtener solo el número de fecha actual
+# Útil para saber qué fecha se está mostrando sin cargar todos los datos
+GET {{host}}/promiedos/lpf/current/round
+Accept: application/json
+
+# ===============================================
+# 📊 FECHAS ESPECÍFICAS 
+# ===============================================
+
+### 3. Obtener fecha específica (fecha 1)
+GET {{host}}/promiedos/lpf/1
+Accept: application/json
+
+### 4. Obtener fecha específica (fecha 2)
+GET {{host}}/promiedos/lpf/2
+Accept: application/json
+
+# ===============================================
+# 🏆 ESCUDOS DE EQUIPOS
+# ===============================================
+
+### 5. Obtener escudo de equipo (tamaño 1)
+GET {{host}}/promiedos/lpf/crest/igi?size=1
+Accept: application/json
+
+# ===============================================
+# 🔐 AUTENTICACIÓN CON GOOGLE
+# ===============================================
+
+### 6. Iniciar login con Google (abrir en navegador)
+GET {{host}}/auth/google
+
+### 7. Verificar token de Google desde frontend
+POST {{host}}/auth/google/verify
 Content-Type: application/json
 
 {
-  "email": "juan@example.com",
-  "name": "Juan Pérez"
+  "token": "ya29.a0AcM612..."
 }
 
-### 4. Obtener todos los usuarios
-GET http://localhost:3000/users
+### 8. Obtener perfil de usuario autenticado
+GET {{host}}/auth/profile
+Authorization: Bearer {{jwt_token}}
 
-### 5. Obtener información de la Fecha 1
-GET http://localhost:3000/promiedos/round/1
+# ===============================================
+# 👤 GESTIÓN DE USUARIOS
+# ===============================================
 
-### 6. Obtener información de la Fecha 2
-GET http://localhost:3000/promiedos/round/2
-
-### 7. Generar external ID para Fecha 1
-GET http://localhost:3000/promiedos/external-id/1
-
-### 8. Crear un pronóstico para la fecha 1
-POST http://localhost:3000/pronostics
+### 9. Crear usuario
+POST {{host}}/users
 Content-Type: application/json
 
 {
-  "externalId": "72_224_8_1",
-  "userId": 1,
+  "name": "Juan Pérez",
+  "email": "juan@ejemplo.com"
+}
+
+### 10. Obtener todos los usuarios
+GET {{host}}/users
+Accept: application/json
+
+# ===============================================
+# 🎲 PRONÓSTICOS
+# ===============================================
+
+### 11. Crear pronóstico (requiere autenticación)
+POST {{host}}/pronostics
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "externalId": "edcgcdj",
   "prediction": {
     "scores": [2, 1],
-    "scorers": ["Messi", "Alvarez"]
+    "scorers": ["Julián Álvarez", "Enzo Fernández"]
   }
 }
 
-### 9. Obtener todos los pronósticos
-GET http://localhost:3000/pronostics
+### 12. Obtener mis pronósticos (requiere autenticación)
+GET {{host}}/pronostics/my-pronostics
+Authorization: Bearer {{jwt_token}}
 
-### 10. Obtener pronósticos por external ID (Fecha 1)
-GET http://localhost:3000/pronostics?externalId=72_224_8_1
+### 13. Obtener todos los pronósticos
+GET {{host}}/pronostics
+Accept: application/json
 
-### 11. Obtener pronósticos por usuario
-GET http://localhost:3000/pronostics?userId=1
-
-### 12. Actualizar un pronóstico
-PATCH http://localhost:3000/pronostics/1
+### 14. Actualizar pronóstico (requiere autenticación y ser propietario)
+PATCH {{host}}/pronostics/1
+Authorization: Bearer {{jwt_token}}
 Content-Type: application/json
 
 {
   "prediction": {
-    "scores": [3, 0],
-    "scorers": ["Messi", "Di María", "Lautaro"]
+    "scores": [1, 0],
+    "scorers": ["Lionel Messi"]
   }
 }
 
-### 13. Crear otro usuario
-POST http://localhost:3000/users
+### 15. Eliminar pronóstico (requiere autenticación y ser propietario)
+DELETE {{host}}/pronostics/1
+Authorization: Bearer {{jwt_token}}
+
+# ===============================================
+# 📋 VARIABLES DE ENTORNO
+# ===============================================
+
+@host = http://localhost:3000
+@jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# ===============================================
+# 💡 NOTAS IMPORTANTES
+# ===============================================
+
+# 🎯 FECHA AUTOMÁTICA:
+# - /promiedos/lpf/current -> Usa SIEMPRE esta ruta en producción
+# - La API calcula automáticamente qué fecha mostrar
+# - Considera partidos en vivo, finalizados y programados
+# - Maneja fechas con información incompleta
+
+# 🔐 AUTENTICACIÓN:
+# - Todas las rutas de creación/edición requieren JWT
+# - Obtén el token con Google OAuth: /auth/google
+# - Incluye: Authorization: Bearer <token>
+
+# 📊 ESTADOS DE PARTIDOS:
+# - enum: 1 = Programado, 2 = En vivo, 3 = Finalizado
+# - La lógica automática usa estos estados para decidir
+
+# 🎲 PRONÓSTICOS:
+# - Solo puedes editar/eliminar tus propios pronósticos
+# - El campo "prediction" es JSON libre (scores, scorers, etc.)
+# - externalId debe coincidir con el ID del partido en Promiedos
+
+# 🏆 ESCUDOS:
+# - size: 1-5 (1 = más pequeño, 5 = más grande)
+# - teamId: usar el ID del equipo desde /promiedos/lpf/current
+
+# ===============================================
+# 🏆 SISTEMA DE TORNEOS
+# ===============================================
+
+### 16. Crear un nuevo torneo (requiere autenticación)
+POST {{host}}/tournaments
+Authorization: Bearer {{jwt_token}}
 Content-Type: application/json
 
 {
-  "email": "maria@example.com",
-  "name": "María González"
+  "name": "Liga Amigos 2025",
+  "description": "Torneo de pronósticos entre amigos para la Liga Profesional"
 }
 
-### 14. Crear pronóstico para fecha 2
-POST http://localhost:3000/pronostics
+### 17. Unirse a un torneo con código (requiere autenticación)
+POST {{host}}/tournaments/join
+Authorization: Bearer {{jwt_token}}
 Content-Type: application/json
 
 {
-  "externalId": "72_224_8_2",
-  "userId": 2,
-  "prediction": {
-    "scores": [1, 2],
-    "scorers": ["Botta", "Bebelo"]
-  }
+  "inviteCode": "ABC123"
 }
 
-### 15. Obtener todas las fechas (1-16) - ¡CUIDADO! Hace 16 requests
-GET http://localhost:3000/promiedos/rounds
+### 18. Obtener mis torneos (requiere autenticación)
+GET {{host}}/tournaments/my-tournaments
+Authorization: Bearer {{jwt_token}}
 
-### 16. Parsear un external ID
-GET http://localhost:3000/promiedos/parse-external-id/72_224_8_1
+### 19. Obtener detalles de un torneo específico (requiere autenticación y participación)
+GET {{host}}/tournaments/1
+Authorization: Bearer {{jwt_token}}
 
-### 17. Obtener fecha específica (ejemplo: fecha 8)
-GET http://localhost:3000/promiedos/round/8
+### 20. Obtener tabla de posiciones de un torneo (requiere autenticación y participación)
+GET {{host}}/tournaments/1/leaderboard
+Authorization: Bearer {{jwt_token}}
 
-### 18. Crear pronóstico para fecha 16
-POST http://localhost:3000/pronostics
-Content-Type: application/json
+# ===============================================
+# 💡 NOTAS SOBRE TORNEOS
+# ===============================================
 
-{
-  "externalId": "72_224_8_16",
-  "userId": 1,
-  "prediction": {
-    "scores": [2, 2],
-    "scorers": ["Jugador1", "Jugador2", "Jugador3", "Jugador4"]
-  }
-} 
+# 🏆 CREACIÓN DE TORNEOS:
+# - Al crear un torneo, automáticamente te unes con 0 puntos
+# - Se genera un código único de 6 caracteres (ej: ABC123)
+# - El creador puede compartir este código para invitar amigos
+
+# 🎯 UNIRSE A TORNEOS:
+# - Usa el código de invitación para unirte
+# - No puedes unirte dos veces al mismo torneo
+# - Empiezas con 0 puntos
+
+# 📊 PUNTOS Y POSICIONES:
+# - Los puntos se calculan automáticamente (lógica por definir)
+# - La tabla se ordena por puntos (desc) y fecha de unión (asc) como desempate
+# - Solo puedes ver torneos en los que participas
+
+# 🔒 SEGURIDAD:
+# - Todas las operaciones requieren autenticación JWT
+# - Solo puedes acceder a torneos en los que participas
+# - Los códigos de invitación son únicos e irrepetibles
+
+# ===============================================
+# 🎯 SISTEMA DE PUNTOS Y RANKINGS
+# ===============================================
+
+### 21. Obtener ranking de una fecha específica (requiere autenticación y participación)
+GET {{host}}/tournaments/1/matchday/5/ranking
+Authorization: Bearer {{jwt_token}}
+
+### 22. Obtener ranking acumulativo detallado (requiere autenticación y participación)
+GET {{host}}/tournaments/1/ranking-detailed
+Authorization: Bearer {{jwt_token}}
+
+# ===============================================
+# 🔧 ENDPOINTS ADMINISTRATIVOS - SISTEMA DE PUNTOS
+# ===============================================
+
+### 23. Procesar puntos manualmente (para testing)
+GET {{host}}/promiedos/admin/points/process-now
+Accept: application/json
+
+### 24. Activar procesamiento automático de puntos
+GET {{host}}/promiedos/admin/points/activate
+Accept: application/json
+
+### 25. Desactivar procesamiento automático de puntos
+GET {{host}}/promiedos/admin/points/deactivate
+Accept: application/json
+
+### 26. Ver estado del sistema de puntos
+GET {{host}}/promiedos/admin/points/status
+Accept: application/json
+
+# ===============================================
+# 💡 NOTAS SOBRE SISTEMA DE PUNTOS
+# ===============================================
+
+# 🎲 PUNTUACIÓN:
+# - Resultado exacto: 3 puntos
+# - Solo resultado (ganador/empate): 1 punto
+# - Sin puntos por goleadores (por ahora)
+
+# ⏰ PROCESAMIENTO AUTOMÁTICO:
+# - A las 11 AM verifica si hay partidos hoy
+# - Si hay partidos, activa procesamiento de 15:00 a 01:00
+# - Procesa cada 5 minutos durante horario activo
+# - Solo procesa partidos finalizados (status = 3)
+
+# 📊 RANKINGS:
+# - Rankings por fecha: quién ganó cada fecha
+# - Rankings acumulativos: puntos totales del torneo
+# - Desempate por fecha de pronóstico/unión
+
+# 🔧 TESTING:
+# - Usa endpoints admin/points/* para probar manualmente
+# - Los puntos se calculan automáticamente para todos los torneos
+# - Un pronóstico solo se procesa una vez (campo 'processed') 

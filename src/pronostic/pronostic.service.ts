@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreatePronosticDto } from './dto/create-pronostic.dto';
 import { UpdatePronosticDto } from './dto/update-pronostic.dto';
@@ -85,11 +89,22 @@ export class PronosticService {
     return pronostic;
   }
 
-  async update(id: number, updatePronosticDto: UpdatePronosticDto) {
+  async update(
+    id: number,
+    updatePronosticDto: UpdatePronosticDto,
+    userId?: number,
+  ) {
     const pronostic = await this.findOne(id);
 
     if (!pronostic) {
       throw new NotFoundException(`Pronóstico con ID ${id} no encontrado`);
+    }
+
+    // Verificar permisos si se proporciona userId
+    if (userId && pronostic.userId !== userId) {
+      throw new ForbiddenException(
+        'No tienes permisos para actualizar este pronóstico',
+      );
     }
 
     return this.prisma.pronostic.update({
@@ -109,11 +124,18 @@ export class PronosticService {
     });
   }
 
-  async remove(id: number) {
+  async remove(id: number, userId?: number) {
     const pronostic = await this.findOne(id);
 
     if (!pronostic) {
       throw new NotFoundException(`Pronóstico con ID ${id} no encontrado`);
+    }
+
+    // Verificar permisos si se proporciona userId
+    if (userId && pronostic.userId !== userId) {
+      throw new ForbiddenException(
+        'No tienes permisos para eliminar este pronóstico',
+      );
     }
 
     return this.prisma.pronostic.delete({

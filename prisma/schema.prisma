@@ -12,13 +12,22 @@ datasource db {
 
 model User {
   id        Int         @id @default(autoincrement())
-  email     String      @unique
+  email     String?     @unique
   name      String?
+  googleId  String?     @unique
+  avatar    String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   
   // Relación con pronósticos
   pronostics Pronostic[]
+  
+  // Relaciones con torneos
+  createdTournaments Tournament[] @relation("TournamentCreator")
+  participations TournamentParticipant[]
+  
+  // Relación con puntos por fecha
+  matchdayPoints MatchdayPoints[]
 }
 
 model Pronostic {
@@ -26,6 +35,7 @@ model Pronostic {
   externalId String   // ID de la API externa (promiedos.com.ar)
   userId     Int
   prediction Json     // Objeto JSON con scores y scorers
+  processed  Boolean  @default(false) // Si ya fue procesado para calcular puntos
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   
@@ -34,4 +44,70 @@ model Pronostic {
   
   // Índice para buscar eficientemente por externalId
   @@index([externalId])
+  // Índice para buscar pronósticos no procesados
+  @@index([processed])
+}
+
+model SystemConfig {
+  key       String   @id  // Clave única (ej: "current_matchday")
+  value     String   // Valor como string (ej: "5")
+  updatedAt DateTime @default(now()) @updatedAt
+  updatedBy String?  // Quién actualizó (cron, admin, etc.)
+  
+  @@map("system_config")
+}
+
+model Tournament {
+  id          Int      @id @default(autoincrement())
+  name        String   // Nombre del torneo
+  description String?  // Descripción opcional
+  inviteCode  String   @unique // Código único para invitar (ej: "ABC123")
+  createdById Int      // ID del usuario que creó el torneo
+  isActive    Boolean  @default(true) // Para activar/desactivar torneos
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relaciones
+  creator      User @relation("TournamentCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  participants TournamentParticipant[]
+  matchdayPoints MatchdayPoints[]
+  
+  @@index([inviteCode])
+}
+
+model TournamentParticipant {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int      // ID del torneo
+  userId       Int      // ID del usuario
+  points       Int      @default(0) // Puntos acumulativos del usuario en este torneo
+  joinedAt     DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relaciones
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Un usuario no puede estar dos veces en el mismo torneo
+  @@unique([tournamentId, userId])
+  @@index([tournamentId])
+  @@index([userId])
+}
+
+model MatchdayPoints {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int      // ID del torneo
+  userId       Int      // ID del usuario
+  matchday     Int      // Número de fecha (1, 2, 3, etc.)
+  points       Int      @default(0) // Puntos obtenidos en esta fecha específica
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relaciones
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Un usuario no puede tener múltiples registros para la misma fecha del mismo torneo
+  @@unique([tournamentId, userId, matchday])
+  @@index([tournamentId, matchday]) // Para rankings por fecha
+  @@index([tournamentId, userId])   // Para puntos de usuario en torneo
 }

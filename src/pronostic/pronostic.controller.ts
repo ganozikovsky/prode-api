@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   ParseIntPipe,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,10 +17,13 @@ import {
   ApiParam,
   ApiQuery,
   ApiBody,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { PronosticService } from './pronostic.service';
 import { CreatePronosticDto } from './dto/create-pronostic.dto';
 import { UpdatePronosticDto } from './dto/update-pronostic.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @ApiTags('pronostics')
 @Controller('pronostics')
@@ -27,9 +31,12 @@ export class PronosticController {
   constructor(private readonly pronosticService: PronosticService) {}
 
   @Post()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Crear nuevo pronóstico',
-    description: 'Crea un nuevo pronóstico para un partido específico',
+    summary: 'Crear nuevo pronóstico (requiere autenticación)',
+    description:
+      'Crea un nuevo pronóstico para un partido específico. Solo usuarios autenticados pueden crear pronósticos.',
   })
   @ApiBody({ type: CreatePronosticDto })
   @ApiResponse({
@@ -55,8 +62,19 @@ export class PronosticController {
     status: 400,
     description: 'Datos de entrada inválidos',
   })
-  create(@Body() createPronosticDto: CreatePronosticDto) {
-    return this.pronosticService.create(createPronosticDto);
+  @ApiResponse({
+    status: 401,
+    description: 'Token de autenticación requerido',
+  })
+  async create(
+    @Body() createPronosticDto: CreatePronosticDto,
+    @CurrentUser() user: any,
+  ) {
+    const pronosticData = {
+      ...createPronosticDto,
+      userId: user.id,
+    };
+    return this.pronosticService.create(pronosticData);
   }
 
   @Get()
@@ -115,118 +133,118 @@ export class PronosticController {
     return this.pronosticService.findAll();
   }
 
+  @Get('my-pronostics')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Obtener mis pronósticos (requiere autenticación)',
+    description: 'Obtiene todos los pronósticos del usuario autenticado',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de pronósticos del usuario autenticado',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token de autenticación requerido',
+  })
+  async getMyPronostics(@CurrentUser() user: any) {
+    return {
+      message: `✅ Pronósticos de ${user.name || user.email}`,
+      pronostics: await this.pronosticService.findByUserId(user.id),
+    };
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Obtener pronóstico por ID',
-    description: 'Retorna un pronóstico específico basado en su ID',
+    description: 'Obtiene un pronóstico específico por su ID',
   })
   @ApiParam({
     name: 'id',
-    type: 'number',
-    description: 'ID único del pronóstico',
-    example: 1,
+    description: 'ID del pronóstico',
+    example: '1',
   })
   @ApiResponse({
     status: 200,
     description: 'Pronóstico encontrado exitosamente',
-    schema: {
-      example: {
-        id: 1,
-        externalId: '12345',
-        userId: 1,
-        prediction: {
-          homeScore: 2,
-          awayScore: 1,
-          homeScorers: ['Messi', 'Di Maria'],
-          awayScorers: ['Cavani'],
-        },
-        createdAt: '2024-07-11T19:00:00.000Z',
-        updatedAt: '2024-07-11T19:00:00.000Z',
-      },
-    },
   })
   @ApiResponse({
     status: 404,
     description: 'Pronóstico no encontrado',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'ID inválido',
   })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.pronosticService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Actualizar pronóstico',
-    description: 'Actualiza un pronóstico existente con nuevos datos',
+    summary: 'Actualizar pronóstico (requiere autenticación)',
+    description:
+      'Actualiza un pronóstico existente. Solo el propietario puede actualizarlo.',
   })
   @ApiParam({
     name: 'id',
-    type: 'number',
-    description: 'ID único del pronóstico a actualizar',
-    example: 1,
+    description: 'ID del pronóstico a actualizar',
+    example: '1',
   })
   @ApiBody({ type: UpdatePronosticDto })
   @ApiResponse({
     status: 200,
     description: 'Pronóstico actualizado exitosamente',
-    schema: {
-      example: {
-        id: 1,
-        externalId: '12345',
-        userId: 1,
-        prediction: {
-          homeScore: 3,
-          awayScore: 1,
-          homeScorers: ['Messi', 'Di Maria', 'Lautaro'],
-          awayScorers: ['Cavani'],
-        },
-        createdAt: '2024-07-11T19:00:00.000Z',
-        updatedAt: '2024-07-11T20:00:00.000Z',
-      },
-    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token de autenticación requerido',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'No tienes permisos para actualizar este pronóstico',
   })
   @ApiResponse({
     status: 404,
     description: 'Pronóstico no encontrado',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'Datos de entrada inválidos',
-  })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePronosticDto: UpdatePronosticDto,
+    @CurrentUser() user: any,
   ) {
-    return this.pronosticService.update(id, updatePronosticDto);
+    return this.pronosticService.update(id, updatePronosticDto, user.id);
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Eliminar pronóstico',
-    description: 'Elimina un pronóstico específico del sistema',
+    summary: 'Eliminar pronóstico (requiere autenticación)',
+    description:
+      'Elimina un pronóstico existente. Solo el propietario puede eliminarlo.',
   })
   @ApiParam({
     name: 'id',
-    type: 'number',
-    description: 'ID único del pronóstico a eliminar',
-    example: 1,
+    description: 'ID del pronóstico a eliminar',
+    example: '1',
   })
   @ApiResponse({
     status: 200,
     description: 'Pronóstico eliminado exitosamente',
   })
   @ApiResponse({
+    status: 401,
+    description: 'Token de autenticación requerido',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'No tienes permisos para eliminar este pronóstico',
+  })
+  @ApiResponse({
     status: 404,
     description: 'Pronóstico no encontrado',
   })
-  @ApiResponse({
-    status: 400,
-    description: 'ID inválido',
-  })
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.pronosticService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.pronosticService.remove(id, user.id);
   }
 }
