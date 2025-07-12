@@ -356,7 +356,8 @@ export class PromiedosController {
   @Get('monitoring/cron-jobs/stats')
   @ApiOperation({
     summary: 'Estadísticas de ejecuciones de cron jobs',
-    description: 'Obtiene estadísticas de rendimiento y éxito de los cron jobs en las últimas horas',
+    description:
+      'Obtiene estadísticas de rendimiento y éxito de los cron jobs en las últimas horas',
   })
   @ApiQuery({
     name: 'hours',
@@ -394,8 +395,8 @@ export class PromiedosController {
             startedAt: '2025-01-15T15:30:00.000Z',
             errorMessage: 'Connection timeout',
             executionTimeMs: 5000,
-          }
-        ]
+          },
+        ],
       },
     },
   })
@@ -404,12 +405,15 @@ export class PromiedosController {
     @Query('jobName') jobName?: string,
   ) {
     const stats = await this.cronAudit.getExecutionStats(jobName, hours);
-    
+
     return {
       ...stats,
-      successRate: stats.totalExecutions > 0 
-        ? Math.round((stats.successfulExecutions / stats.totalExecutions) * 100 * 100) / 100
-        : 0,
+      successRate:
+        stats.totalExecutions > 0
+          ? Math.round(
+              (stats.successfulExecutions / stats.totalExecutions) * 100 * 100,
+            ) / 100
+          : 0,
       timeframe: `${hours} horas`,
       timestamp: new Date().toISOString(),
     };
@@ -466,7 +470,8 @@ export class PromiedosController {
   @Get('monitoring/cron-jobs/status')
   @ApiOperation({
     summary: 'Estado actual de los cron jobs',
-    description: 'Obtiene el estado actual de todos los cron jobs y su configuración',
+    description:
+      'Obtiene el estado actual de todos los cron jobs y su configuración',
   })
   @ApiResponse({
     status: 200,
@@ -487,7 +492,7 @@ export class PromiedosController {
             timezone: 'America/Argentina/Buenos_Aires',
             enabled: true,
             nextExecution: '2025-01-16T11:00:00.000Z',
-          }
+          },
         ],
         dynamicJobs: [
           {
@@ -495,7 +500,7 @@ export class PromiedosController {
             isActive: true,
             schedule: 'cada 5 min (15:00-01:00)',
             description: 'Procesando puntos cada 5 min (15:00-01:00)',
-          }
+          },
         ],
         timestamp: '2025-01-15T20:30:00.000Z',
       },
@@ -521,7 +526,7 @@ export class PromiedosController {
           timezone: 'America/Argentina/Buenos_Aires',
           enabled: true,
           nextExecution: this.calculateNext11AM(),
-        }
+        },
       ],
       dynamicJobs: [pointsStatus],
       currentMatchday: {
@@ -536,7 +541,8 @@ export class PromiedosController {
   @Get('monitoring/cron-jobs/execute/:jobName')
   @ApiOperation({
     summary: 'Ejecutar cron job manualmente (solo para testing)',
-    description: 'Ejecuta un cron job específico manualmente para propósitos de testing',
+    description:
+      'Ejecuta un cron job específico manualmente para propósitos de testing',
   })
   @ApiParam({
     name: 'jobName',
@@ -552,11 +558,11 @@ export class PromiedosController {
       case 'update-current-matchday':
         await this.scheduler.executeCronJobManually();
         return { message: `✅ Cron job '${jobName}' ejecutado manualmente` };
-      
+
       case 'check-matches-today':
         await this.scheduler.checkMatchesTodayCronJob();
         return { message: `✅ Cron job '${jobName}' ejecutado manualmente` };
-      
+
       default:
         return { error: `❌ Cron job '${jobName}' no encontrado` };
     }
@@ -566,11 +572,11 @@ export class PromiedosController {
     const now = new Date();
     const next11AM = new Date(now);
     next11AM.setHours(11, 0, 0, 0);
-    
+
     if (now.getHours() >= 11) {
       next11AM.setDate(next11AM.getDate() + 1);
     }
-    
+
     return next11AM.toISOString();
   }
 }
