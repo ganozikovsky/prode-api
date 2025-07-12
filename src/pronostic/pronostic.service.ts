@@ -7,7 +7,6 @@ import {
 import { PrismaService } from '../prisma.service';
 import { CreatePronosticDto } from './dto/create-pronostic.dto';
 import { UpdatePronosticDto } from './dto/update-pronostic.dto';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class PronosticService {
@@ -32,7 +31,7 @@ export class PronosticService {
       data: {
         externalId: createPronosticDto.externalId,
         userId: userId,
-        prediction: createPronosticDto.prediction as Prisma.JsonObject,
+        prediction: createPronosticDto.prediction,
       },
       include: {
         user: {

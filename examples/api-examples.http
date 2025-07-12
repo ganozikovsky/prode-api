@@ -114,7 +114,10 @@ Content-Type: application/json
   "externalId": "edcgcdj",
   "prediction": {
     "scores": [2, 1],
-    "scorers": ["Julián Álvarez", "Enzo Fernández"]
+    "scorers": {
+      "local": "Julián Álvarez",
+      "visitor": "Enzo Fernández"
+    }
   }
 }
 
@@ -134,7 +137,9 @@ Content-Type: application/json
 {
   "prediction": {
     "scores": [1, 0],
-    "scorers": ["Lionel Messi"]
+    "scorers": {
+      "local": "Lionel Messi"
+    }
   }
 }
 
@@ -307,7 +312,10 @@ Accept: application/json
 # 🎲 PUNTUACIÓN:
 # - Resultado exacto: 3 puntos
 # - Solo resultado (ganador/empate): 1 punto
-# - Sin puntos por goleadores (por ahora)
+# - Goleador local acertado: 5 puntos
+# - Goleador visitante acertado: 5 puntos
+# - Máximo posible: 13 puntos (resultado exacto + 2 goleadores)
+# - Los goleadores son opcionales, solo 1 por equipo
 
 # ⏰ PROCESAMIENTO AUTOMÁTICO:
 # - A las 11 AM verifica si hay partidos hoy
