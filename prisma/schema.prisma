@@ -37,6 +37,7 @@ model Pronostic {
   userId     Int
   prediction Json     // Objeto JSON con scores y scorers
   processed  Boolean  @default(false) // Si ya fue procesado para calcular puntos
+  livePoints Int      @default(0) // Puntos temporales asignados mientras el partido está en vivo
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   
@@ -80,8 +81,7 @@ model TournamentParticipant {
   id           Int      @id @default(autoincrement())
   tournamentId Int      // ID del torneo
   userId       Int      // ID del usuario
-  points       Int      @default(0) // Puntos acumulativos DEFINITIVOS del usuario en este torneo
-  livePoints   Int      @default(0) // Puntos temporales de partidos en vivo
+  points       Int      @default(0) // Puntos acumulativos del usuario en este torneo
   joinedAt     DateTime @default(now())
   updatedAt    DateTime @updatedAt
   
@@ -100,8 +100,7 @@ model MatchdayPoints {
   tournamentId Int      // ID del torneo
   userId       Int      // ID del usuario
   matchday     Int      // Número de fecha (1, 2, 3, etc.)
-  points       Int      @default(0) // Puntos DEFINITIVOS obtenidos en esta fecha específica
-  livePoints   Int      @default(0) // Puntos temporales de partidos en vivo de esta fecha
+  points       Int      @default(0) // Puntos obtenidos en esta fecha específica
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   

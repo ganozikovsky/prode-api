@@ -11,9 +11,7 @@ import * as Sentry from '@sentry/node';
 export class MatchdaySchedulerService {
   private readonly logger = new Logger(MatchdaySchedulerService.name);
   private pointsProcessingActive = false;
-  private livePointsProcessingActive = false;
   private readonly POINTS_CRON_NAME = 'process-points-every-5min';
-  private readonly LIVE_POINTS_CRON_NAME = 'process-live-points-every-2min';
 
   constructor(
     private readonly calculator: MatchdayCalculatorService,
@@ -255,13 +253,11 @@ export class MatchdaySchedulerService {
           '⚽ HAY partidos hoy - Activando procesamiento de puntos',
         );
         await this.activatePointsProcessing();
-        await this.activateLivePointsProcessing(); // 🔴 Nuevo: Activar puntos temporales
       } else {
         this.logger.log(
           '😴 NO hay partidos hoy - Manteniendo procesamiento inactivo',
         );
         await this.deactivatePointsProcessing();
-        await this.deactivateLivePointsProcessing(); // 🔴 Nuevo: Desactivar puntos temporales
       }
 
       // Completar auditoría exitosa
@@ -352,59 +348,6 @@ export class MatchdaySchedulerService {
   }
 
   /**
-   * 🔴 Activa el procesamiento dinámico de puntos TEMPORALES (cada 2 minutos)
-   * Crea un cron job dinámico para procesar partidos en vivo
-   */
-  private async activateLivePointsProcessing(): Promise<void> {
-    if (this.livePointsProcessingActive) {
-      this.logger.log('🔄 Procesamiento de puntos temporales ya está activo');
-      return;
-    }
-
-    try {
-      this.livePointsProcessingActive = true;
-
-      // Crear cron job dinámico para puntos temporales
-      await this.createDynamicLivePointsCronJob();
-
-      this.logger.log(
-        '🔴 Procesamiento de puntos TEMPORALES ACTIVADO - Cron job dinámico creado (cada 2 min)',
-      );
-    } catch (error) {
-      this.logger.error(
-        `❌ Error activando procesamiento de puntos temporales: ${error.message}`,
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * 🔴 Desactiva el procesamiento dinámico de puntos TEMPORALES
-   * Elimina el cron job dinámico para ahorrar recursos
-   */
-  private async deactivateLivePointsProcessing(): Promise<void> {
-    if (!this.livePointsProcessingActive) {
-      this.logger.log('⏸️ Procesamiento de puntos temporales ya está inactivo');
-      return;
-    }
-
-    try {
-      this.livePointsProcessingActive = false;
-
-      // Eliminar cron job dinámico
-      await this.removeDynamicLivePointsCronJob();
-
-      this.logger.log(
-        '🔴 Procesamiento de puntos TEMPORALES DESACTIVADO - Cron job dinámico eliminado',
-      );
-    } catch (error) {
-      this.logger.error(
-        `❌ Error desactivando procesamiento de puntos temporales: ${error.message}`,
-      );
-    }
-  }
-
-  /**
    * 🏗️ Crea un cron job dinámico para procesamiento de puntos
    * Se ejecuta cada 5 minutos entre 15:00-01:00
    */
@@ -472,75 +415,6 @@ export class MatchdaySchedulerService {
   }
 
   /**
-   * 🔴 Crea un cron job dinámico para procesamiento de puntos TEMPORALES
-   * Se ejecuta cada 2 minutos durante todo el día
-   */
-  private async createDynamicLivePointsCronJob(): Promise<void> {
-    const cronName = this.LIVE_POINTS_CRON_NAME;
-
-    try {
-      // Verificar si ya existe
-      const existingJob = this.schedulerRegistry.getCronJob(cronName);
-      if (existingJob) {
-        this.logger.log(
-          `🔄 Cron job ${cronName} ya existe, no se creará duplicado`,
-        );
-        return;
-      }
-    } catch (error) {
-      // Si no existe, continuamos para crearlo
-    }
-
-    // Crear el cron job
-    const job = new CronJob(
-      '*/2 * * * *', // Cada 2 minutos durante todo el día
-      () => {
-        // Ejecutar procesamiento de puntos temporales
-        this.executeDynamicLivePointsProcessing().catch((error) => {
-          this.logger.error(
-            `❌ Error en cron job dinámico LIVE: ${error.message}`,
-          );
-        });
-      },
-      null, // onComplete
-      false, // no iniciar automáticamente
-      'America/Argentina/Buenos_Aires', // timezone
-    );
-
-    // Registrar el cron job
-    this.schedulerRegistry.addCronJob(cronName, job as any);
-
-    // Iniciar el cron job
-    job.start();
-
-    this.logger.log(`🔴 Cron job dinámico LIVE ${cronName} creado y iniciado`);
-  }
-
-  /**
-   * 🔴 Elimina el cron job dinámico de procesamiento de puntos TEMPORALES
-   */
-  private async removeDynamicLivePointsCronJob(): Promise<void> {
-    const cronName = this.LIVE_POINTS_CRON_NAME;
-
-    try {
-      // Obtener el cron job
-      const job = this.schedulerRegistry.getCronJob(cronName);
-
-      // Detener el cron job (usando any para evitar problemas de tipos)
-      (job as any).stop();
-
-      // Eliminar del registry
-      this.schedulerRegistry.deleteCronJob(cronName);
-
-      this.logger.log(`🔴 Cron job dinámico LIVE ${cronName} eliminado`);
-    } catch (error) {
-      this.logger.warn(
-        `⚠️ No se pudo eliminar cron job LIVE ${cronName}: ${error.message}`,
-      );
-    }
-  }
-
-  /**
    * 🎲 Ejecuta el procesamiento de puntos desde el cron job dinámico
    */
   private async executeDynamicPointsProcessing(): Promise<void> {
@@ -566,10 +440,13 @@ export class MatchdaySchedulerService {
       await this.cronAudit.completeExecution(executionId, {
         previousValue: 'null',
         newValue: 'null',
-        recordsAffected: result?.processedCount || 0,
+        recordsAffected:
+          (result?.processedCount || 0) + (result?.liveProcessedCount || 0),
         metadata: {
           processedMatches: result?.processedMatches || 0,
           processedPronostics: result?.processedCount || 0,
+          liveProcessedMatches: result?.liveProcessedMatches || 0,
+          liveProcessedPronostics: result?.liveProcessedCount || 0,
           totalMatches: result?.totalMatches || 0,
           matchday: result?.matchday || 0,
           userPointsDetails: result?.userPointsDetails || [],
@@ -593,6 +470,14 @@ export class MatchdaySchedulerService {
               result?.userPointsDetails?.filter(
                 (detail) => detail.pointType === 'none',
               ).length || 0,
+            liveUpdates:
+              result?.userPointsDetails?.filter(
+                (detail) => detail.isLive === true,
+              ).length || 0,
+            finalUpdates:
+              result?.userPointsDetails?.filter(
+                (detail) => detail.isLive === false,
+              ).length || 0,
           },
         },
       });
@@ -608,89 +493,6 @@ export class MatchdaySchedulerService {
         await this.cronAudit.failExecution(executionId, error, {
           operation: 'process-points-dynamic',
           phase: error.message.includes('processFinishedMatches')
-            ? 'processing'
-            : 'database',
-        });
-      }
-
-      Sentry.withScope((scope) => {
-        scope.setTag('service', 'matchday-scheduler');
-        scope.setTag('cron_job', jobName);
-        scope.setLevel('error');
-        Sentry.captureException(error);
-      });
-    }
-  }
-
-  /**
-   * 🔴 Ejecuta el procesamiento de puntos TEMPORALES desde el cron job dinámico
-   */
-  private async executeDynamicLivePointsProcessing(): Promise<void> {
-    const jobName = 'process-live-points-dynamic';
-    let executionId: number;
-
-    try {
-      // Iniciar auditoría
-      executionId = await this.cronAudit.startExecution(jobName, {
-        scheduledTime: new Date().toISOString(),
-        isAutomaticExecution: true,
-        activeHours: '24/7',
-        isDynamicCronJob: true,
-        isLiveProcessing: true,
-      });
-
-      this.logger.log(
-        `🔴 Ejecutando procesamiento de puntos TEMPORALES... (ID: ${executionId})`,
-      );
-
-      const result = await this.pointsService.processLiveMatches();
-
-      // Completar auditoría exitosa
-      await this.cronAudit.completeExecution(executionId, {
-        previousValue: 'null',
-        newValue: 'null',
-        recordsAffected: result?.processedCount || 0,
-        metadata: {
-          processedMatches: result?.processedMatches || 0,
-          processedPronostics: result?.processedCount || 0,
-          totalMatches: result?.totalMatches || 0,
-          matchday: result?.matchday || 0,
-          userLivePointsDetails: result?.userLivePointsDetails || [],
-          gamesProcessed: result?.gamesProcessed || [],
-          summary: {
-            usersAffected: result?.userLivePointsDetails?.length || 0,
-            totalLivePointsAwarded:
-              result?.userLivePointsDetails?.reduce(
-                (sum, detail) => sum + detail.livePointsAwarded,
-                0,
-              ) || 0,
-            exactPredictions:
-              result?.userLivePointsDetails?.filter(
-                (detail) => detail.pointType === 'exact',
-              ).length || 0,
-            resultPredictions:
-              result?.userLivePointsDetails?.filter(
-                (detail) => detail.pointType === 'result',
-              ).length || 0,
-            failedPredictions:
-              result?.userLivePointsDetails?.filter(
-                (detail) => detail.pointType === 'none',
-              ).length || 0,
-          },
-        },
-      });
-
-      this.logger.log('🔴 Procesamiento de puntos TEMPORALES completado');
-    } catch (error) {
-      this.logger.error(
-        `❌ Error en procesamiento de puntos TEMPORALES: ${error.message}`,
-      );
-
-      // Marcar auditoría como fallida
-      if (executionId) {
-        await this.cronAudit.failExecution(executionId, error, {
-          operation: 'process-live-points-dynamic',
-          phase: error.message.includes('processLiveMatches')
             ? 'processing'
             : 'database',
         });
@@ -724,39 +526,22 @@ export class MatchdaySchedulerService {
   /**
    * 🧪 Método manual para ejecutar procesamiento de puntos inmediatamente
    */
-  async executePointsProcessingManually(): Promise<void> {
+  async executePointsProcessingManually(): Promise<any> {
     this.logger.log('🧪 Ejecutando procesamiento de puntos manualmente...');
-    await this.pointsService.processFinishedMatches();
-  }
+    const result = await this.pointsService.processFinishedMatches();
 
-  /**
-   * 🔴 Método manual para activar procesamiento de puntos TEMPORALES (testing)
-   */
-  async forceActivateLivePointsProcessing(): Promise<void> {
-    this.logger.log(
-      '🔴 Activando procesamiento de puntos TEMPORALES manualmente...',
-    );
-    await this.activateLivePointsProcessing();
-  }
+    if (result.liveProcessedCount > 0) {
+      this.logger.log(
+        `🔴 Procesados ${result.liveProcessedCount} pronósticos en vivo`,
+      );
+    }
+    if (result.processedCount > 0) {
+      this.logger.log(
+        `🏁 Procesados ${result.processedCount} pronósticos finalizados`,
+      );
+    }
 
-  /**
-   * 🔴 Método manual para desactivar procesamiento de puntos TEMPORALES (testing)
-   */
-  async forceDeactivateLivePointsProcessing(): Promise<void> {
-    this.logger.log(
-      '🔴 Desactivando procesamiento de puntos TEMPORALES manualmente...',
-    );
-    await this.deactivateLivePointsProcessing();
-  }
-
-  /**
-   * 🔴 Método manual para ejecutar procesamiento de puntos TEMPORALES inmediatamente
-   */
-  async executeLivePointsProcessingManually(): Promise<void> {
-    this.logger.log(
-      '🔴 Ejecutando procesamiento de puntos TEMPORALES manualmente...',
-    );
-    await this.pointsService.processLiveMatches();
+    return result;
   }
 
   /**
@@ -767,16 +552,8 @@ export class MatchdaySchedulerService {
     cronName: string;
     description: string;
     cronJobExists: boolean;
-    // 🔴 Nuevo: Estado de puntos temporales
-    livePointsProcessing: {
-      isActive: boolean;
-      cronName: string;
-      description: string;
-      cronJobExists: boolean;
-    };
   } {
     const cronJobExists = this.isDynamicCronJobRunning();
-    const liveCronJobExists = this.isDynamicLiveCronJobRunning();
 
     let description: string;
     if (this.pointsProcessingActive && cronJobExists) {
@@ -787,26 +564,11 @@ export class MatchdaySchedulerService {
       description = 'Sistema inactivo - Cron job dinámico no existe';
     }
 
-    let liveDescription: string;
-    if (this.livePointsProcessingActive && liveCronJobExists) {
-      liveDescription = 'Cron job dinámico activo cada 2 min (24/7)';
-    } else if (this.livePointsProcessingActive && !liveCronJobExists) {
-      liveDescription = 'Sistema activo pero cron job no existe (error)';
-    } else {
-      liveDescription = 'Sistema inactivo - Cron job dinámico no existe';
-    }
-
     return {
       isActive: this.pointsProcessingActive,
       cronName: this.POINTS_CRON_NAME,
       cronJobExists,
       description,
-      livePointsProcessing: {
-        isActive: this.livePointsProcessingActive,
-        cronName: this.LIVE_POINTS_CRON_NAME,
-        cronJobExists: liveCronJobExists,
-        description: liveDescription,
-      },
     };
   }
 
@@ -816,19 +578,6 @@ export class MatchdaySchedulerService {
   private isDynamicCronJobRunning(): boolean {
     try {
       const job = this.schedulerRegistry.getCronJob(this.POINTS_CRON_NAME);
-      // Si obtenemos el job sin error, significa que existe
-      return job !== null && job !== undefined;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  /**
-   * 🔴 Verifica si el cron job dinámico LIVE está realmente ejecutándose
-   */
-  private isDynamicLiveCronJobRunning(): boolean {
-    try {
-      const job = this.schedulerRegistry.getCronJob(this.LIVE_POINTS_CRON_NAME);
       // Si obtenemos el job sin error, significa que existe
       return job !== null && job !== undefined;
     } catch (error) {

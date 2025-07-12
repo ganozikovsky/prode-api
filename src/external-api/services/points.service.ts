@@ -39,122 +39,7 @@ export class PointsService {
   ) {}
 
   /**
-   * 🔴 Procesa todos los partidos EN VIVO y calcula puntos temporales
-   * Este método actualiza los puntos temporales cada minuto
-   */
-  async processLiveMatches(): Promise<{
-    processedCount: number;
-    processedMatches: number;
-    totalMatches: number;
-    matchday: number;
-    // Detalles granulares para auditoría
-    userLivePointsDetails: Array<{
-      userId: number;
-      userName: string;
-      gameId: string;
-      predictedScores: number[];
-      currentScores: number[];
-      livePointsAwarded: number;
-      pointType: PointType;
-      tournamentsAffected: number[];
-    }>;
-    gamesProcessed: Array<{
-      gameId: string;
-      currentScores: number[];
-      pronosticsCount: number;
-      livePointsDistributed: number;
-    }>;
-  }> {
-    this.logger.log('🔴 Iniciando procesamiento de partidos EN VIVO...');
-
-    try {
-      // Obtener la fecha actual automáticamente
-      const currentMatchdayData = await this.promiedosService.getMatchday();
-      const currentMatchday = currentMatchdayData.round;
-
-      this.logger.log(`📅 Procesando fecha ${currentMatchday} (LIVE)`);
-
-      // Filtrar solo partidos EN VIVO (status.enum === 2)
-      const liveGames = currentMatchdayData.games.filter(
-        (game: GameResult) => game.status.enum === 2,
-      );
-
-      const totalMatches = currentMatchdayData.games.length;
-
-      // Arrays para auditoría detallada
-      const userLivePointsDetails = [];
-      const gamesProcessed = [];
-
-      if (liveGames.length === 0) {
-        this.logger.log('⏸️ No hay partidos EN VIVO para procesar');
-        // Limpiar puntos temporales si no hay partidos en vivo
-        await this.clearAllLivePoints(currentMatchday);
-        return {
-          processedCount: 0,
-          processedMatches: 0,
-          totalMatches,
-          matchday: currentMatchday,
-          userLivePointsDetails,
-          gamesProcessed,
-        };
-      }
-
-      this.logger.log(`🔴 Encontrados ${liveGames.length} partidos EN VIVO`);
-
-      let totalProcessed = 0;
-      let processedMatches = 0;
-
-      // Procesar cada partido en vivo
-      for (const game of liveGames) {
-        const gameResult = await this.processGameLivePointsDetailed(
-          game,
-          currentMatchday,
-        );
-
-        if (gameResult.processedCount > 0) {
-          processedMatches++;
-
-          // Agregar detalles del juego
-          gamesProcessed.push({
-            gameId: game.id,
-            currentScores: game.scores,
-            pronosticsCount: gameResult.processedCount,
-            livePointsDistributed: gameResult.userDetails.reduce(
-              (sum, detail) => sum + detail.livePointsAwarded,
-              0,
-            ),
-          });
-
-          // Agregar detalles de usuarios
-          userLivePointsDetails.push(...gameResult.userDetails);
-        }
-
-        totalProcessed += gameResult.processedCount;
-      }
-
-      this.logger.log(
-        `✅ Procesamiento LIVE completado: ${totalProcessed} pronósticos procesados`,
-      );
-      this.logger.log(
-        `📊 Detalles LIVE: ${userLivePointsDetails.length} usuarios con puntos temporales en ${gamesProcessed.length} partidos`,
-      );
-
-      return {
-        processedCount: totalProcessed,
-        processedMatches,
-        totalMatches,
-        matchday: currentMatchday,
-        userLivePointsDetails,
-        gamesProcessed,
-      };
-    } catch (error) {
-      this.logger.error('❌ Error procesando partidos EN VIVO:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Procesa todos los partidos finalizados y calcula puntos
+   * Procesa todos los partidos (en vivo y finalizados) y calcula puntos
    * Este es el método principal que ejecutará el cron job
    */
   async processFinishedMatches(): Promise<{
@@ -162,6 +47,8 @@ export class PointsService {
     processedMatches: number;
     totalMatches: number;
     matchday: number;
+    liveProcessedCount: number;
+    liveProcessedMatches: number;
     // Detalles granulares para auditoría
     userPointsDetails: Array<{
       userId: number;
@@ -172,15 +59,19 @@ export class PointsService {
       pointsAwarded: number;
       pointType: PointType;
       tournamentsAffected: number[];
+      isLive: boolean;
     }>;
     gamesProcessed: Array<{
       gameId: string;
       realScores: number[];
       pronosticsCount: number;
       pointsDistributed: number;
+      isLive: boolean;
     }>;
   }> {
-    this.logger.log('🔍 Iniciando procesamiento de partidos finalizados...');
+    this.logger.log(
+      '🔍 Iniciando procesamiento de partidos (en vivo y finalizados)...',
+    );
 
     try {
       // Obtener la fecha actual automáticamente
@@ -189,9 +80,14 @@ export class PointsService {
 
       this.logger.log(`📅 Procesando fecha ${currentMatchday}`);
 
-      // Filtrar solo partidos finalizados (status.enum === 3)
+      // Filtrar partidos finalizados (status.enum === 3)
       const finishedGames = currentMatchdayData.games.filter(
         (game: GameResult) => game.status.enum === 3,
+      );
+
+      // Filtrar partidos en vivo (status.enum === 2)
+      const liveGames = currentMatchdayData.games.filter(
+        (game: GameResult) => game.status.enum === 2,
       );
 
       const totalMatches = currentMatchdayData.games.length;
@@ -200,58 +96,96 @@ export class PointsService {
       const userPointsDetails = [];
       const gamesProcessed = [];
 
-      if (finishedGames.length === 0) {
-        this.logger.log('⏸️ No hay partidos finalizados para procesar');
-        return {
-          processedCount: 0,
-          processedMatches: 0,
-          totalMatches,
-          matchday: currentMatchday,
-          userPointsDetails,
-          gamesProcessed,
-        };
-      }
-
-      this.logger.log(
-        `🏁 Encontrados ${finishedGames.length} partidos finalizados`,
-      );
-
       let totalProcessed = 0;
       let processedMatches = 0;
+      let liveProcessedCount = 0;
+      let liveProcessedMatches = 0;
 
-      // Procesar cada partido finalizado
-      for (const game of finishedGames) {
-        const gameResult = await this.processGamePronosticsDetailed(
-          game,
-          currentMatchday,
+      // 1. Procesar partidos en vivo primero
+      if (liveGames.length > 0) {
+        this.logger.log(`🔴 Encontrados ${liveGames.length} partidos en vivo`);
+
+        for (const game of liveGames) {
+          const gameResult = await this.processLiveGamePronosticsDetailed(
+            game,
+            currentMatchday,
+          );
+
+          if (gameResult.processedCount > 0) {
+            liveProcessedMatches++;
+
+            // Agregar detalles del juego
+            gamesProcessed.push({
+              gameId: game.id,
+              realScores: game.scores,
+              pronosticsCount: gameResult.processedCount,
+              pointsDistributed: gameResult.userDetails.reduce(
+                (sum, detail) => sum + detail.pointsAwarded,
+                0,
+              ),
+              isLive: true,
+            });
+
+            // Agregar detalles de usuarios
+            userPointsDetails.push(...gameResult.userDetails);
+          }
+
+          liveProcessedCount += gameResult.processedCount;
+        }
+      }
+
+      // 2. Procesar partidos finalizados
+      if (finishedGames.length > 0) {
+        this.logger.log(
+          `🏁 Encontrados ${finishedGames.length} partidos finalizados`,
         );
 
-        if (gameResult.processedCount > 0) {
-          processedMatches++;
+        for (const game of finishedGames) {
+          const gameResult = await this.processGamePronosticsDetailed(
+            game,
+            currentMatchday,
+          );
 
-          // Agregar detalles del juego
-          gamesProcessed.push({
-            gameId: game.id,
-            realScores: game.scores,
-            pronosticsCount: gameResult.processedCount,
-            pointsDistributed: gameResult.userDetails.reduce(
-              (sum, detail) => sum + detail.pointsAwarded,
-              0,
-            ),
-          });
+          if (gameResult.processedCount > 0) {
+            processedMatches++;
 
-          // Agregar detalles de usuarios
-          userPointsDetails.push(...gameResult.userDetails);
+            // Agregar detalles del juego
+            gamesProcessed.push({
+              gameId: game.id,
+              realScores: game.scores,
+              pronosticsCount: gameResult.processedCount,
+              pointsDistributed: gameResult.userDetails.reduce(
+                (sum, detail) => sum + detail.pointsAwarded,
+                0,
+              ),
+              isLive: false,
+            });
+
+            // Agregar detalles de usuarios
+            userPointsDetails.push(...gameResult.userDetails);
+          }
+
+          totalProcessed += gameResult.processedCount;
         }
+      }
 
-        totalProcessed += gameResult.processedCount;
+      // Log del resultado
+      if (liveProcessedCount > 0) {
+        this.logger.log(
+          `🔴 Procesamiento en vivo: ${liveProcessedCount} pronósticos actualizados`,
+        );
+      }
+      if (totalProcessed > 0) {
+        this.logger.log(
+          `🏁 Procesamiento final: ${totalProcessed} pronósticos procesados`,
+        );
+      }
+      if (liveProcessedCount === 0 && totalProcessed === 0) {
+        this.logger.log('⏸️ No hay partidos para procesar');
       }
 
       this.logger.log(
-        `✅ Procesamiento completado: ${totalProcessed} pronósticos procesados`,
-      );
-      this.logger.log(
-        `📊 Detalles: ${userPointsDetails.length} usuarios recibieron puntos en ${gamesProcessed.length} partidos`,
+        `📊 Detalles: ${userPointsDetails.length} usuarios afectados en ${gamesProcessed.length} partidos`,
       );
 
       return {
@@ -259,122 +193,15 @@ export class PointsService {
         processedMatches,
         totalMatches,
         matchday: currentMatchday,
+        liveProcessedCount,
+        liveProcessedMatches,
         userPointsDetails,
         gamesProcessed,
       };
     } catch (error) {
-      this.logger.error('❌ Error procesando partidos finalizados:', error);
+      this.logger.error('❌ Error procesando partidos:', error);
       throw error;
     }
-  }
-
-  /**
-   * 🔴 Procesa los pronósticos de un partido EN VIVO específico
-   */
-  private async processGameLivePointsDetailed(
-    game: GameResult,
-    matchday: number,
-  ): Promise<{
-    processedCount: number;
-    userDetails: Array<{
-      userId: number;
-      userName: string;
-      gameId: string;
-      predictedScores: number[];
-      currentScores: number[];
-      livePointsAwarded: number;
-      pointType: PointType;
-      tournamentsAffected: number[];
-    }>;
-  }> {
-    // Buscar TODOS los pronósticos para este partido (procesados y no procesados)
-    const allPronostics = await this.prisma.pronostic.findMany({
-      where: {
-        externalId: game.id,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
-
-    const userDetails = [];
-
-    if (allPronostics.length === 0) {
-      this.logger.debug(
-        `⏭️ No hay pronósticos para partido EN VIVO ${game.id}`,
-      );
-      return {
-        processedCount: 0,
-        userDetails,
-      };
-    }
-
-    this.logger.log(
-      `🔴 Procesando LIVE ${allPronostics.length} pronósticos para partido ${game.id}`,
-    );
-
-    let processedCount = 0;
-
-    for (const pronostic of allPronostics) {
-      try {
-        const prediction =
-          pronostic.prediction as unknown as PronosticPrediction;
-        const livePoints = this.calculatePoints(game.scores, prediction.scores);
-        const pointType = this.getPointType(game.scores, prediction.scores);
-
-        this.logger.debug(
-          `👤 ${pronostic.user.name} LIVE: Pronóstico ${JSON.stringify(prediction.scores)} vs Actual ${JSON.stringify(game.scores)} = ${livePoints} puntos temporales`,
-        );
-
-        // Buscar todos los torneos donde participa este usuario
-        const userTournaments =
-          await this.prisma.tournamentParticipant.findMany({
-            where: { userId: pronostic.userId },
-            select: { tournamentId: true },
-          });
-
-        const tournamentsAffected = userTournaments.map((t) => t.tournamentId);
-
-        // Actualizar puntos TEMPORALES en todos los torneos del usuario
-        for (const tournament of userTournaments) {
-          await this.updateUserLivePointsInTournament(
-            tournament.tournamentId,
-            pronostic.userId,
-            matchday,
-            livePoints,
-          );
-        }
-
-        // Agregar detalles del usuario para auditoría
-        userDetails.push({
-          userId: pronostic.userId,
-          userName: pronostic.user.name,
-          gameId: game.id,
-          predictedScores: prediction.scores,
-          currentScores: game.scores,
-          livePointsAwarded: livePoints,
-          pointType,
-          tournamentsAffected,
-        });
-
-        processedCount++;
-      } catch (error) {
-        this.logger.error(
-          `❌ Error procesando pronóstico LIVE ${pronostic.id}:`,
-          error,
-        );
-      }
-    }
-
-    return {
-      processedCount,
-      userDetails,
-    };
   }
 
   /**
@@ -394,6 +221,7 @@ export class PointsService {
       pointsAwarded: number;
       pointType: PointType;
       tournamentsAffected: number[];
+      isLive: boolean;
     }>;
   }> {
     // Buscar pronósticos no procesados para este partido
@@ -460,18 +288,14 @@ export class PointsService {
           );
         }
 
-        // Marcar pronóstico como procesado
+        // Marcar pronóstico como procesado y resetear puntos temporales
         await this.prisma.pronostic.update({
           where: { id: pronostic.id },
-          data: { processed: true },
+          data: {
+            processed: true,
+            livePoints: 0, // Resetear puntos temporales al finalizar
+          },
         });
-
-        // 🧹 Limpiar puntos temporales para este partido que ya terminó
-        await this.clearLivePointsForFinishedGame(
-          pronostic.userId,
-          matchday,
-          game.id,
-        );
 
         // Agregar detalles del usuario para auditoría
         userDetails.push({
@@ -483,12 +307,141 @@ export class PointsService {
           pointsAwarded: points,
           pointType,
           tournamentsAffected,
+          isLive: false,
         });
 
         processedCount++;
       } catch (error) {
         this.logger.error(
           `❌ Error procesando pronóstico ${pronostic.id}:`,
+          error,
+        );
+      }
+    }
+
+    return {
+      processedCount,
+      userDetails,
+    };
+  }
+
+  /**
+   * Procesa los pronósticos de un partido EN VIVO con detalles granulares
+   * A diferencia de los partidos finalizados, aquí se actualizan los puntos temporalmente
+   */
+  private async processLiveGamePronosticsDetailed(
+    game: GameResult,
+    matchday: number,
+  ): Promise<{
+    processedCount: number;
+    userDetails: Array<{
+      userId: number;
+      userName: string;
+      gameId: string;
+      predictedScores: number[];
+      realScores: number[];
+      pointsAwarded: number;
+      pointType: PointType;
+      tournamentsAffected: number[];
+      isLive: boolean;
+    }>;
+  }> {
+    // Buscar pronósticos para este partido (no importa si están procesados o no)
+    const livePronostics = await this.prisma.pronostic.findMany({
+      where: {
+        externalId: game.id,
+        processed: false, // Solo los que no están finalizados
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const userDetails = [];
+
+    if (livePronostics.length === 0) {
+      this.logger.debug(
+        `⏭️ No hay pronósticos activos para partido en vivo ${game.id}`,
+      );
+      return {
+        processedCount: 0,
+        userDetails,
+      };
+    }
+
+    this.logger.log(
+      `🔴 Procesando ${livePronostics.length} pronósticos para partido en vivo ${game.id}`,
+    );
+
+    let processedCount = 0;
+
+    for (const pronostic of livePronostics) {
+      try {
+        const prediction =
+          pronostic.prediction as unknown as PronosticPrediction;
+        const newPoints = this.calculatePoints(game.scores, prediction.scores);
+        const pointType = this.getPointType(game.scores, prediction.scores);
+        const previousLivePoints = pronostic.livePoints;
+
+        // Calcular la diferencia de puntos
+        const pointsDifference = newPoints - previousLivePoints;
+
+        this.logger.debug(
+          `👤 ${pronostic.user.name}: Pronóstico ${JSON.stringify(prediction.scores)} vs Real ${JSON.stringify(game.scores)} = ${newPoints} puntos (anterior: ${previousLivePoints}, diferencia: ${pointsDifference})`,
+        );
+
+        // Solo actualizar si hay cambios en los puntos
+        if (pointsDifference !== 0) {
+          // Buscar todos los torneos donde participa este usuario
+          const userTournaments =
+            await this.prisma.tournamentParticipant.findMany({
+              where: { userId: pronostic.userId },
+              select: { tournamentId: true },
+            });
+
+          const tournamentsAffected = userTournaments.map(
+            (t) => t.tournamentId,
+          );
+
+          // Actualizar puntos en todos los torneos del usuario
+          for (const tournament of userTournaments) {
+            await this.updateUserPointsInTournament(
+              tournament.tournamentId,
+              pronostic.userId,
+              matchday,
+              pointsDifference, // Solo la diferencia
+            );
+          }
+
+          // Actualizar los puntos temporales en el pronóstico
+          await this.prisma.pronostic.update({
+            where: { id: pronostic.id },
+            data: { livePoints: newPoints },
+          });
+
+          // Agregar detalles del usuario para auditoría
+          userDetails.push({
+            userId: pronostic.userId,
+            userName: pronostic.user.name,
+            gameId: game.id,
+            predictedScores: prediction.scores,
+            realScores: game.scores,
+            pointsAwarded: pointsDifference, // La diferencia, no el total
+            pointType,
+            tournamentsAffected,
+            isLive: true,
+          });
+
+          processedCount++;
+        }
+      } catch (error) {
+        this.logger.error(
+          `❌ Error procesando pronóstico en vivo ${pronostic.id}:`,
           error,
         );
       }
@@ -639,167 +592,6 @@ export class PointsService {
   }
 
   /**
-   * 🔴 Actualiza los puntos TEMPORALES de un usuario en un torneo específico
-   */
-  private async updateUserLivePointsInTournament(
-    tournamentId: number,
-    userId: number,
-    matchday: number,
-    livePoints: number,
-  ): Promise<void> {
-    // Upsert en MatchdayPoints (puntos temporales por fecha)
-    await this.prisma.matchdayPoints.upsert({
-      where: {
-        tournamentId_userId_matchday: {
-          tournamentId,
-          userId,
-          matchday,
-        },
-      },
-      update: {
-        livePoints: livePoints, // Reemplazar puntos temporales
-        updatedAt: new Date(),
-      },
-      create: {
-        tournamentId,
-        userId,
-        matchday,
-        points: 0, // Puntos definitivos siguen en 0
-        livePoints: livePoints,
-      },
-    });
-
-    // Calcular puntos temporales totales del usuario en este torneo
-    const totalLivePoints = await this.calculateUserTotalLivePoints(
-      tournamentId,
-      userId,
-    );
-
-    // Actualizar puntos temporales acumulativos en TournamentParticipant
-    await this.prisma.tournamentParticipant.update({
-      where: {
-        tournamentId_userId: {
-          tournamentId,
-          userId,
-        },
-      },
-      data: {
-        livePoints: totalLivePoints, // Reemplazar puntos temporales totales
-        updatedAt: new Date(),
-      },
-    });
-
-    this.logger.debug(
-      `🔴 Puntos TEMPORALES actualizados: Usuario ${userId}, Torneo ${tournamentId}, Fecha ${matchday}, ${livePoints} puntos temporales`,
-    );
-  }
-
-  /**
-   * 🔴 Calcula el total de puntos temporales de un usuario en un torneo
-   */
-  private async calculateUserTotalLivePoints(
-    tournamentId: number,
-    userId: number,
-  ): Promise<number> {
-    const result = await this.prisma.matchdayPoints.aggregate({
-      where: {
-        tournamentId,
-        userId,
-      },
-      _sum: {
-        livePoints: true,
-      },
-    });
-
-    return result._sum.livePoints || 0;
-  }
-
-  /**
-   * 🧹 Limpia todos los puntos temporales de una fecha específica
-   */
-  private async clearAllLivePoints(matchday: number): Promise<void> {
-    this.logger.log(`🧹 Limpiando puntos temporales de fecha ${matchday}...`);
-
-    // Limpiar puntos temporales por fecha
-    await this.prisma.matchdayPoints.updateMany({
-      where: { matchday },
-      data: { livePoints: 0 },
-    });
-
-    // Recalcular puntos temporales totales de todos los usuarios
-    const allParticipants = await this.prisma.tournamentParticipant.findMany({
-      select: { tournamentId: true, userId: true },
-    });
-
-    for (const participant of allParticipants) {
-      const totalLivePoints = await this.calculateUserTotalLivePoints(
-        participant.tournamentId,
-        participant.userId,
-      );
-
-      await this.prisma.tournamentParticipant.update({
-        where: {
-          tournamentId_userId: {
-            tournamentId: participant.tournamentId,
-            userId: participant.userId,
-          },
-        },
-        data: { livePoints: totalLivePoints },
-      });
-    }
-
-    this.logger.log(`✅ Puntos temporales limpiados para fecha ${matchday}`);
-  }
-
-  /**
-   * 🧹 Limpia puntos temporales de un partido específico que terminó
-   */
-  private async clearLivePointsForFinishedGame(
-    userId: number,
-    matchday: number,
-    gameId: string,
-  ): Promise<void> {
-    this.logger.debug(
-      `🧹 Limpiando puntos temporales del partido ${gameId} para usuario ${userId}...`,
-    );
-
-    // Obtener todos los torneos del usuario
-    const userTournaments = await this.prisma.tournamentParticipant.findMany({
-      where: { userId },
-      select: { tournamentId: true },
-    });
-
-    for (const tournament of userTournaments) {
-      // Limpiar puntos temporales de esta fecha para este usuario
-      await this.prisma.matchdayPoints.updateMany({
-        where: {
-          tournamentId: tournament.tournamentId,
-          userId,
-          matchday,
-        },
-        data: { livePoints: 0 },
-      });
-
-      // Recalcular puntos temporales totales del usuario en este torneo
-      const totalLivePoints = await this.calculateUserTotalLivePoints(
-        tournament.tournamentId,
-        userId,
-      );
-
-      // Actualizar puntos temporales acumulativos
-      await this.prisma.tournamentParticipant.update({
-        where: {
-          tournamentId_userId: {
-            tournamentId: tournament.tournamentId,
-            userId,
-          },
-        },
-        data: { livePoints: totalLivePoints },
-      });
-    }
-  }
-
-  /**
    * Obtiene el ranking de una fecha específica de un torneo
    */
   async getMatchdayRanking(
@@ -821,31 +613,16 @@ export class PointsService {
           },
         },
       },
+      orderBy: [
+        { points: 'desc' },
+        { createdAt: 'asc' }, // Desempate por quien hizo pronósticos primero
+      ],
     });
 
-    // Calcular puntos totales (definitivos + temporales) y ordenar
-    const rankingWithTotalPoints = ranking
-      .map((entry) => ({
-        user: entry.user,
-        points: entry.points,
-        livePoints: entry.livePoints,
-        totalPoints: entry.points + entry.livePoints, // Puntos definitivos + temporales
-        matchday: entry.matchday,
-        createdAt: entry.createdAt,
-      }))
-      .sort((a, b) => {
-        if (b.totalPoints !== a.totalPoints) {
-          return b.totalPoints - a.totalPoints; // Ordenar por puntos totales descendente
-        }
-        return a.createdAt.getTime() - b.createdAt.getTime(); // Desempate por quien hizo pronósticos primero
-      });
-
-    return rankingWithTotalPoints.map((entry, index) => ({
+    return ranking.map((entry, index) => ({
       position: index + 1,
       user: entry.user,
-      points: entry.points, // Puntos definitivos
-      livePoints: entry.livePoints, // Puntos temporales
-      totalPoints: entry.totalPoints, // Total combinado
+      points: entry.points,
       matchday: entry.matchday,
     }));
   }
@@ -866,30 +643,16 @@ export class PointsService {
           },
         },
       },
+      orderBy: [
+        { points: 'desc' },
+        { joinedAt: 'asc' }, // Desempate por quien se unió primero
+      ],
     });
 
-    // Calcular puntos totales (definitivos + temporales) y ordenar
-    const rankingWithTotalPoints = ranking
-      .map((participant) => ({
-        user: participant.user,
-        points: participant.points,
-        livePoints: participant.livePoints,
-        totalPoints: participant.points + participant.livePoints, // Puntos definitivos + temporales
-        joinedAt: participant.joinedAt,
-      }))
-      .sort((a, b) => {
-        if (b.totalPoints !== a.totalPoints) {
-          return b.totalPoints - a.totalPoints; // Ordenar por puntos totales descendente
-        }
-        return a.joinedAt.getTime() - b.joinedAt.getTime(); // Desempate por quien se unió primero
-      });
-
-    return rankingWithTotalPoints.map((participant, index) => ({
+    return ranking.map((participant, index) => ({
       position: index + 1,
       user: participant.user,
-      points: participant.points, // Puntos definitivos
-      livePoints: participant.livePoints, // Puntos temporales
-      totalPoints: participant.totalPoints, // Total combinado
+      points: participant.points,
       joinedAt: participant.joinedAt,
     }));
   }
