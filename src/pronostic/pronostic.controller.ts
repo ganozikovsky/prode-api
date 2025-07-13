@@ -163,6 +163,10 @@ export class PronosticController {
     description: 'Token de autenticación requerido',
   })
   @ApiResponse({
+    status: 409,
+    description: 'Conflicto: Ya existe un registro con esos datos únicos',
+  })
+  @ApiResponse({
     status: 500,
     description: 'Error interno del servidor',
   })
