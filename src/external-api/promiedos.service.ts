@@ -102,9 +102,11 @@ export class PromiedosService {
               game.id,
             );
 
-            this.logger.debug(
-              `📊 Pronósticos obtenidos para juego ${game.id}: ${pronostics.length}`,
-            );
+            if (pronostics.length > 1) {
+              this.logger.warn(
+                `⚠️ Pronósticos obtenidos para juego ${game.id}: ${pronostics.length}`,
+              );
+            }
 
             return {
               ...game,
