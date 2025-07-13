@@ -65,11 +65,7 @@ export class PronosticService {
   }
 
   async createBulk(pronostics: CreatePronosticDto[], userId: number) {
-    const upsertPromises = pronostics.map((pronostic, index) => {
-      this.logger.debug(
-        `📝 [BULK] Preparando upsert ${index + 1}/${pronostics.length} para partido ${pronostic.externalId}`,
-      );
-
+    const upsertPromises = pronostics.map((pronostic) => {
       return this.prisma.pronostic.upsert({
         where: {
           externalId_userId: {
@@ -100,16 +96,19 @@ export class PronosticService {
     try {
       const result = await this.prisma.$transaction(upsertPromises);
 
-      console.log({ result });
-
       const externalIds = pronostics.map((p) => p.externalId);
+      this.cacheService.invalidateByExternalIds(externalIds).catch((error) => {
+        this.logger.error(
+          `❌ Error invalidando cache (asíncrono): ${error.message}`,
+        );
+      });
 
       this.logger.log(
-        `🗑️ [BULK CACHE] Invalidando cache para ${externalIds.length} partidos`,
+        `✅ Bulk creado exitosamente: ${result.length} pronósticos`,
       );
-      await this.cacheService.invalidateByExternalIds(externalIds);
       return result;
     } catch (error) {
+      this.logger.error(`❌ Error en createBulk: ${error.message}`);
       throw error;
     }
   }
