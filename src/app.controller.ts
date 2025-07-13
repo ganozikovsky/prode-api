@@ -15,7 +15,8 @@ export class AppController {
         auth: {
           'GET /auth/google': 'Iniciar login con Google',
           'GET /auth/google/callback': 'Callback de Google (automático)',
-          'POST /auth/google/verify': 'Verificar token de Google desde frontend',
+          'POST /auth/google/verify':
+            'Verificar token de Google desde frontend',
           'GET /auth/profile':
             'Obtener perfil del usuario autenticado (requiere JWT)',
         },

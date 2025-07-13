@@ -11,9 +11,13 @@ Sentry.init({
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
+
+  // Aplicar filtro global de excepciones de Prisma
+  app.useGlobalFilters(new PrismaExceptionFilter());
 
   // Puerto para Heroku
   const port = process.env.PORT || 3000;

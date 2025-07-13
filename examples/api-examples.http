@@ -103,7 +103,7 @@ Accept: application/json
 # 🎲 PRONÓSTICOS
 # ===============================================
 
-### 11. Crear pronóstico (requiere autenticación)
+### 11. Crear pronóstico individual (requiere autenticación)
 # NOTA: Solo puedes crear UN pronóstico por partido
 # Si ya tienes uno, usa PATCH para editarlo
 POST {{host}}/pronostics
@@ -117,6 +117,37 @@ Content-Type: application/json
     "scorers": ["Julián Álvarez", "Enzo Fernández"]
   }
 }
+
+### 11b. Crear/actualizar múltiples pronósticos (bulk) (requiere autenticación)
+# NOTA: Crea o actualiza varios pronósticos en una sola operación - envía directamente el array
+# Si ya tienes pronósticos para algunos partidos, los actualiza; si no existen, los crea
+POST {{host}}/pronostics/bulk
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+[
+  {
+    "externalId": "edcgcdj",
+    "prediction": {
+      "scores": [2, 1],
+      "scorers": ["Julián Álvarez", "Enzo Fernández"]
+    }
+  },
+  {
+    "externalId": "abcdef",
+    "prediction": {
+      "scores": [1, 1],
+      "scorers": ["Lautaro Martínez", "Paulo Dybala"]
+    }
+  },
+  {
+    "externalId": "xyz123",
+    "prediction": {
+      "scores": [3, 0],
+      "scorers": ["Lionel Messi", "Ángel Di María", "Rodrigo De Paul"]
+    }
+  }
+]
 
 ### 12. Obtener mis pronósticos (requiere autenticación)
 GET {{host}}/pronostics/my-pronostics

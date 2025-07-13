@@ -103,13 +103,13 @@ export class AuthService {
 
   async verifyGoogleToken(credential: string) {
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    
+
     try {
       const ticket = await client.verifyIdToken({
         idToken: credential,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
-      
+
       return ticket;
     } catch (error) {
       this.logger.error('Error verificando token de Google:', error);

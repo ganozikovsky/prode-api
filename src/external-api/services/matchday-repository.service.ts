@@ -142,11 +142,13 @@ export class MatchdayRepositoryService {
    * 📜 Obtiene historial de cambios (si necesario en el futuro)
    * Por ahora solo devuelve el valor actual, pero se puede extender
    */
-  async getCurrentMatchdayHistory(): Promise<Array<{
-    value: number;
-    updatedAt: Date;
-    updatedBy: string | null;
-  }>> {
+  async getCurrentMatchdayHistory(): Promise<
+    Array<{
+      value: number;
+      updatedAt: Date;
+      updatedBy: string | null;
+    }>
+  > {
     try {
       const config = await this.prismaService.systemConfig.findUnique({
         where: { key: 'current_matchday' },
@@ -171,4 +173,4 @@ export class MatchdayRepositoryService {
       throw error;
     }
   }
-} 
+}

@@ -7,11 +7,11 @@ export class UpdatePronosticDto {
     example: {
       homeScore: 3,
       awayScore: 1,
-      homeScorers: ["Messi", "Di Maria", "Lautaro"],
-      awayScorers: ["Cavani"]
+      homeScorers: ['Messi', 'Di Maria', 'Lautaro'],
+      awayScorers: ['Cavani'],
     },
     type: 'object',
-    required: false
+    required: false,
   })
   prediction?: Prisma.JsonValue;
 }

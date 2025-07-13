@@ -6,4 +6,4 @@ export class GoogleTokenDto {
     example: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjZmNzI1YTdkZjU5ZWQ...',
   })
   credential: string;
-} 
+}

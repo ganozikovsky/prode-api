@@ -36,7 +36,7 @@ export class PronosticController {
   @ApiOperation({
     summary: 'Crear nuevo pronóstico (requiere autenticación)',
     description:
-      'Crea un nuevo pronóstico para un partido específico. Solo usuarios autenticados pueden crear pronósticos. Un usuario solo puede crear un pronóstico por partido.',
+      'Crea un nuevo pronóstico para un partido específico. Solo usuarios autenticados pueden crear pronósticos. Un usuario solo puede crear un pronóstico por partido. Si ya existe un pronóstico para ese partido, retorna error 409.',
   })
   @ApiBody({ type: CreatePronosticDto })
   @ApiResponse({
@@ -79,6 +79,98 @@ export class PronosticController {
     @CurrentUser() user: any,
   ) {
     return this.pronosticService.create(createPronosticDto, user.id);
+  }
+
+  @Post('bulk')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Crear/actualizar múltiples pronósticos (requiere autenticación)',
+    description:
+      'Crea o actualiza múltiples pronósticos para diferentes partidos en una sola operación. Si ya existe un pronóstico para un partido, lo actualiza; si no existe, lo crea. Un usuario solo puede tener un pronóstico por partido.',
+  })
+  @ApiBody({
+    type: [CreatePronosticDto],
+    description: 'Array de pronósticos a crear',
+    examples: {
+      'bulk-pronostics': {
+        summary: 'Múltiples pronósticos',
+        value: [
+          {
+            externalId: 'edcgcdj',
+            prediction: {
+              scores: [2, 1],
+              scorers: ['Messi', 'Di María'],
+            },
+          },
+          {
+            externalId: 'abcdef',
+            prediction: {
+              scores: [1, 1],
+              scorers: ['Cavani', 'Suarez'],
+            },
+          },
+        ],
+      },
+    },
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Pronósticos creados/actualizados exitosamente',
+    schema: {
+      example: [
+        {
+          id: 1,
+          externalId: 'edcgcdj',
+          userId: 1,
+          prediction: {
+            scores: [2, 1],
+            scorers: ['Messi', 'Di María'],
+          },
+          createdAt: '2024-07-11T19:00:00.000Z',
+          updatedAt: '2024-07-11T19:00:00.000Z',
+          user: {
+            id: 1,
+            name: 'Juan Pérez',
+            email: 'juan@ejemplo.com',
+          },
+        },
+        {
+          id: 2,
+          externalId: 'abcdef',
+          userId: 1,
+          prediction: {
+            scores: [1, 1],
+            scorers: ['Cavani', 'Suarez'],
+          },
+          createdAt: '2024-07-11T19:00:00.000Z',
+          updatedAt: '2024-07-11T19:00:00.000Z',
+          user: {
+            id: 1,
+            name: 'Juan Pérez',
+            email: 'juan@ejemplo.com',
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos de entrada inválidos',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Token de autenticación requerido',
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor',
+  })
+  async createBulk(
+    @Body() pronostics: CreatePronosticDto[],
+    @CurrentUser() user: any,
+  ) {
+    return this.pronosticService.createBulk(pronostics, user.id);
   }
 
   @Get()

@@ -24,7 +24,7 @@ export class PronosticService {
 
     if (existingPronostic) {
       throw new ConflictException(
-        `Ya tienes un pronóstico para este partido. Puedes editarlo usando PATCH /pronostics/${existingPronostic.id}`
+        `Ya tienes un pronóstico para este partido. Puedes editarlo usando PATCH /pronostics/${existingPronostic.id}`,
       );
     }
 
@@ -44,6 +44,38 @@ export class PronosticService {
         },
       },
     });
+  }
+
+  async createBulk(pronostics: CreatePronosticDto[], userId: number) {
+    const upsertPromises = pronostics.map((pronostic) => {
+      return this.prisma.pronostic.upsert({
+        where: {
+          externalId_userId: {
+            externalId: pronostic.externalId,
+            userId: userId,
+          },
+        },
+        create: {
+          externalId: pronostic.externalId,
+          userId: userId,
+          prediction: pronostic.prediction as Prisma.JsonObject,
+        },
+        update: {
+          prediction: pronostic.prediction as Prisma.JsonObject,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+    });
+
+    return this.prisma.$transaction(upsertPromises);
   }
 
   async findAll() {
