@@ -3,6 +3,7 @@ import axios from 'axios';
 import { PronosticService } from '../pronostic/pronostic.service';
 import { MatchdayRepositoryService } from './services/matchday-repository.service';
 import { MatchdaySchedulerService } from './services/matchday-scheduler.service';
+import { MatchdayCacheService } from './services/matchday-cache.service';
 import { PointsService } from './services/points.service';
 import {
   Game,
@@ -21,6 +22,7 @@ export class PromiedosService {
     private readonly pronosticService: PronosticService,
     private readonly repository: MatchdayRepositoryService,
     private readonly scheduler: MatchdaySchedulerService,
+    private readonly cacheService: MatchdayCacheService,
     @Inject(forwardRef(() => PointsService))
     private readonly pointsService: PointsService,
   ) {}
@@ -74,7 +76,7 @@ export class PromiedosService {
   // ==========================================
 
   /**
-   * 📅 Obtiene los partidos de una fecha con pronósticos
+   * 📅 Obtiene los partidos de una fecha con pronósticos (optimizado con cache)
    */
   async getMatchday(roundId?: number): Promise<MatchdayResponse> {
     try {
@@ -85,7 +87,7 @@ export class PromiedosService {
         `📅 Obteniendo datos de fecha ${finalRoundId}${roundId ? ' (especificada)' : ' (calculada)'}`,
       );
 
-      // Obtener datos de la API externa
+      // 1. Obtener datos de la API externa
       const { data }: { data: PromiedosApiResponse } = await axios.get(
         `${this.baseUrl}/league/games/hc/72_224_8_${finalRoundId}`,
       );
@@ -94,37 +96,21 @@ export class PromiedosService {
         `✅ Datos obtenidos de Promiedos para fecha ${finalRoundId}`,
       );
 
-      // Enriquecer con pronósticos de la base de datos
-      const gamesWithPronostics: GameWithPronostics[] = await Promise.all(
-        data.games.map(async (game: Game) => {
-          try {
-            const pronostics = await this.pronosticService.findByExternalId(
-              game.id,
-            );
+      // 2. Obtener pronósticos desde cache (optimizado)
+      const pronosticsMap =
+        await this.cacheService.getMatchdayPronostics(finalRoundId);
 
-            if (pronostics.length > 1) {
-              this.logger.warn(
-                `⚠️ Pronósticos obtenidos para juego ${game.id}: ${pronostics.length}`,
-              );
-            }
+      // 3. Enriquecer games con pronósticos (sin queries adicionales)
+      const gamesWithPronostics: GameWithPronostics[] = data.games.map(
+        (game: Game) => {
+          const pronostics = pronosticsMap.get(game.id) || [];
 
-            return {
-              ...game,
-              pronostics,
-              totalPronostics: pronostics.length,
-            };
-          } catch (dbError) {
-            this.logger.warn(
-              `⚠️ Error DB para juego ${game.id}: ${dbError.message}`,
-            );
-
-            return {
-              ...game,
-              pronostics: [],
-              totalPronostics: 0,
-            };
-          }
-        }),
+          return {
+            ...game,
+            pronostics,
+            totalPronostics: pronostics.length,
+          };
+        },
       );
 
       const totalPronostics = gamesWithPronostics.reduce(

@@ -39,26 +39,25 @@ export class PromiedosController {
 
     games.forEach((game) => {
       const gameDate = this.parseMatchDate(game.start_time);
-      const dateKey = gameDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateKey = gameDate.toISOString().split('T')[0];
 
       if (!groupedGames.has(dateKey)) {
         groupedGames.set(dateKey, []);
       }
-      groupedGames.get(dateKey)!.push(game);
+      groupedGames.get(dateKey).push(game);
     });
 
-    // Convertir a array y ordenar por fecha
-    const result = Array.from(groupedGames.entries()).map(
-      ([date, matches]) => ({
+    const result = Array.from(groupedGames.entries()).map(([date, matches]) => {
+      const sortedMatches = [...matches].sort((a, b) => {
+        const timeA = a.start_time.split(' ')[1] || '00:00';
+        const timeB = b.start_time.split(' ')[1] || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+      return {
         date: new Date(date).toISOString(),
-        matches: matches.sort((a, b) => {
-          // Ordenar partidos por hora dentro de cada fecha
-          const timeA = a.start_time.split(' ')[1] || '00:00';
-          const timeB = b.start_time.split(' ')[1] || '00:00';
-          return timeA.localeCompare(timeB);
-        }),
-      }),
-    );
+        matches: sortedMatches,
+      };
+    });
 
     // Ordenar por fecha
     return result.sort(

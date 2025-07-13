@@ -3,15 +3,22 @@ import {
   NotFoundException,
   ForbiddenException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreatePronosticDto } from './dto/create-pronostic.dto';
 import { UpdatePronosticDto } from './dto/update-pronostic.dto';
 import { Prisma } from '@prisma/client';
+import { MatchdayCacheService } from '../external-api/services/matchday-cache.service';
 
 @Injectable()
 export class PronosticService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => MatchdayCacheService))
+    private readonly cacheService: MatchdayCacheService,
+  ) {}
 
   async create(createPronosticDto: CreatePronosticDto, userId: number) {
     // Verificar si el usuario ya tiene un pronóstico para este partido
@@ -28,7 +35,7 @@ export class PronosticService {
       );
     }
 
-    return this.prisma.pronostic.create({
+    const result = await this.prisma.pronostic.create({
       data: {
         externalId: createPronosticDto.externalId,
         userId: userId,
@@ -45,6 +52,13 @@ export class PronosticService {
         },
       },
     });
+
+    // Invalidar cache para este partido específico
+    await this.cacheService.invalidateByExternalIds([
+      createPronosticDto.externalId,
+    ]);
+
+    return result;
   }
 
   async createBulk(pronostics: CreatePronosticDto[], userId: number) {
@@ -76,7 +90,13 @@ export class PronosticService {
       });
     });
 
-    return this.prisma.$transaction(upsertPromises);
+    const result = await this.prisma.$transaction(upsertPromises);
+
+    // 🔄 Invalidar cache después del bulk
+    const externalIds = pronostics.map((p) => p.externalId);
+    await this.cacheService.invalidateByExternalIds(externalIds);
+
+    return result;
   }
 
   async findAll() {
@@ -155,7 +175,7 @@ export class PronosticService {
       );
     }
 
-    return this.prisma.pronostic.update({
+    const result = await this.prisma.pronostic.update({
       where: { id },
       data: {
         prediction:
@@ -171,6 +191,11 @@ export class PronosticService {
         },
       },
     });
+
+    // Invalidar cache para este partido específico
+    await this.cacheService.invalidateByExternalIds([pronostic.externalId]);
+
+    return result;
   }
 
   async remove(id: number, userId?: number) {
@@ -187,9 +212,14 @@ export class PronosticService {
       );
     }
 
-    return this.prisma.pronostic.delete({
+    const result = await this.prisma.pronostic.delete({
       where: { id },
     });
+
+    // Invalidar cache para este partido específico
+    await this.cacheService.invalidateByExternalIds([pronostic.externalId]);
+
+    return result;
   }
 
   async findByUserId(userId: number) {
