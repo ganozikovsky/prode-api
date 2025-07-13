@@ -7,6 +7,8 @@ import { UsersModule } from './users/users.module';
 import { ExternalApiModule } from './external-api/external-api.module';
 import { AuthModule } from './auth/auth.module';
 import { TournamentModule } from './tournament/tournament.module';
+import { AdminModule } from './admin/admin.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 import { PrismaService } from './prisma.service';
 
 @Module({
@@ -17,6 +19,8 @@ import { PrismaService } from './prisma.service';
     ExternalApiModule,
     AuthModule,
     TournamentModule,
+    AdminModule,
+    MonitoringModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
