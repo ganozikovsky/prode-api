@@ -65,17 +65,6 @@ export class PronosticService {
   }
 
   async createBulk(pronostics: CreatePronosticDto[], userId: number) {
-    const startTime = Date.now();
-
-    // Log inicial del pool de conexiones
-    const initialPoolMetrics = await this.getPoolMetrics();
-    this.logger.log(
-      `🔄 [BULK START] Pool inicial: ${JSON.stringify(initialPoolMetrics)}`,
-    );
-    this.logger.log(
-      `🔄 [BULK START] Procesando ${pronostics.length} pronósticos para usuario ${userId}`,
-    );
-
     const upsertPromises = pronostics.map((pronostic, index) => {
       this.logger.debug(
         `📝 [BULK] Preparando upsert ${index + 1}/${pronostics.length} para partido ${pronostic.externalId}`,
@@ -108,66 +97,19 @@ export class PronosticService {
       });
     });
 
-    // Log antes de la transacción
-    const preTransactionMetrics = await this.getPoolMetrics();
-    this.logger.log(
-      `🔄 [BULK TRANSACTION] Pool antes de transacción: ${JSON.stringify(preTransactionMetrics)}`,
-    );
-
     try {
       const result = await this.prisma.$transaction(upsertPromises);
 
-      // Log después de la transacción
-      const postTransactionMetrics = await this.getPoolMetrics();
-      const transactionTime = Date.now() - startTime;
+      console.log({ result });
 
-      this.logger.log(
-        `✅ [BULK TRANSACTION] Completada en ${transactionTime}ms`,
-      );
-      this.logger.log(
-        `✅ [BULK TRANSACTION] Pool después de transacción: ${JSON.stringify(postTransactionMetrics)}`,
-      );
-      this.logger.log(
-        `✅ [BULK TRANSACTION] Resultados: ${result.length} pronósticos procesados`,
-      );
-
-      // 🔄 Invalidar cache después del bulk
-      const cacheStartTime = Date.now();
       const externalIds = pronostics.map((p) => p.externalId);
 
       this.logger.log(
         `🗑️ [BULK CACHE] Invalidando cache para ${externalIds.length} partidos`,
       );
       await this.cacheService.invalidateByExternalIds(externalIds);
-
-      const cacheTime = Date.now() - cacheStartTime;
-      this.logger.log(`✅ [BULK CACHE] Cache invalidado en ${cacheTime}ms`);
-
-      // Log final del pool
-      const finalPoolMetrics = await this.getPoolMetrics();
-      const totalTime = Date.now() - startTime;
-
-      this.logger.log(`✅ [BULK COMPLETE] Tiempo total: ${totalTime}ms`);
-      this.logger.log(
-        `✅ [BULK COMPLETE] Pool final: ${JSON.stringify(finalPoolMetrics)}`,
-      );
-      this.logger.log(
-        `✅ [BULK COMPLETE] Cambios en pool: conexiones activas ${finalPoolMetrics.active - initialPoolMetrics.active}, idle ${finalPoolMetrics.idle - initialPoolMetrics.idle}`,
-      );
-
       return result;
     } catch (error) {
-      // Log en caso de error
-      const errorMetrics = await this.getPoolMetrics();
-      const errorTime = Date.now() - startTime;
-
-      this.logger.error(
-        `❌ [BULK ERROR] Falló después de ${errorTime}ms: ${error.message}`,
-      );
-      this.logger.error(
-        `❌ [BULK ERROR] Pool en error: ${JSON.stringify(errorMetrics)}`,
-      );
-
       throw error;
     }
   }
