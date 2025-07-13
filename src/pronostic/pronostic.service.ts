@@ -32,7 +32,8 @@ export class PronosticService {
       data: {
         externalId: createPronosticDto.externalId,
         userId: userId,
-        prediction: createPronosticDto.prediction as Prisma.JsonObject,
+        prediction:
+          createPronosticDto.prediction as unknown as Prisma.JsonObject,
       },
       include: {
         user: {
@@ -58,10 +59,10 @@ export class PronosticService {
         create: {
           externalId: pronostic.externalId,
           userId: userId,
-          prediction: pronostic.prediction as Prisma.JsonObject,
+          prediction: pronostic.prediction as unknown as Prisma.JsonObject,
         },
         update: {
-          prediction: pronostic.prediction as Prisma.JsonObject,
+          prediction: pronostic.prediction as unknown as Prisma.JsonObject,
         },
         include: {
           user: {
@@ -157,7 +158,8 @@ export class PronosticService {
     return this.prisma.pronostic.update({
       where: { id },
       data: {
-        prediction: updatePronosticDto.prediction,
+        prediction:
+          updatePronosticDto.prediction as unknown as Prisma.JsonObject,
       },
       include: {
         user: {

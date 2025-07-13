@@ -40,26 +40,40 @@ POST /pronostics/bulk
 
 ### Formato de Response
 ```json
-{
-  "count": 2,
-  "created": 1,
-  "updated": 1,
-  "pronostics": [
-    {
+[
+  {
+    "id": 1,
+    "externalId": "partido1",
+    "userId": 1,
+    "prediction": {
+      "scores": [2, 1],
+      "scorers": ["Messi", "Di María"]
+    },
+    "createdAt": "2024-07-11T19:00:00.000Z",
+    "updatedAt": "2024-07-11T19:00:00.000Z",
+    "user": {
       "id": 1,
-      "externalId": "partido1",
-      "userId": 1,
-      "prediction": {...},
-      "createdAt": "2024-07-11T19:00:00.000Z",
-      "updatedAt": "2024-07-11T19:00:00.000Z",
-      "user": {
-        "id": 1,
-        "name": "Juan Pérez",
-        "email": "juan@ejemplo.com"
-      }
+      "name": "Juan Pérez",
+      "email": "juan@ejemplo.com"
     }
-  ]
-}
+  },
+  {
+    "id": 2,
+    "externalId": "partido2",
+    "userId": 1,
+    "prediction": {
+      "scores": [1, 1],
+      "scorers": ["Cavani", "Suarez"]
+    },
+    "createdAt": "2024-07-11T19:00:00.000Z",
+    "updatedAt": "2024-07-11T19:00:00.000Z",
+    "user": {
+      "id": 1,
+      "name": "Juan Pérez",
+      "email": "juan@ejemplo.com"
+    }
+  }
+]
 ```
 
 ## 🔧 Cambios en el Código
@@ -116,17 +130,18 @@ async createBulk(
 ## 🚀 Ventajas
 
 1. **Simplicidad**: El cliente envía directamente un array
-2. **Eficiencia**: Menos llamadas HTTP
+2. **Eficiencia**: Menos llamadas HTTP, operaciones paralelas
 3. **Flexibilidad**: Crea o actualiza según sea necesario
-4. **Atomicidad**: Todas las operaciones se ejecutan en paralelo
-5. **Información detallada**: Retorna estadísticas de la operación
+4. **Atomicidad**: Todas las operaciones en una transacción
+5. **Manejo de errores**: Filtro global de excepciones de Prisma
 
 ## 🔒 Validaciones
 
 - Autenticación JWT requerida
 - Validación de DTOs
-- Constraint única a nivel de base de datos (cuando sea posible)
-- Manejo de errores apropiado
+- Constraint única a nivel de base de datos
+- Filtro global de excepciones de Prisma
+- Manejo automático de errores con respuestas HTTP apropiadas
 
 ## 📝 Migración
 
@@ -141,21 +156,9 @@ Usar el archivo `examples/api-examples.http` sección `11b` para probar la funci
 
 ## 📝 Código Final Implementado
 
-### Upsert con Transacción (Implementación Mejorada)
+### Upsert con Transacción (Implementación Final)
 ```typescript
 async createBulk(pronostics: CreatePronosticDto[], userId: number) {
-  // Obtener pronósticos existentes para calcular estadísticas
-  const externalIds = pronostics.map((p) => p.externalId);
-  const existingPronostics = await this.prisma.pronostic.findMany({
-    where: {
-      externalId: { in: externalIds },
-      userId: userId,
-    },
-  });
-
-  const existingExternalIds = new Set(existingPronostics.map(p => p.externalId));
-
-  // Crear promesas de upsert usando la constraint única externalId + userId
   const upsertPromises = pronostics.map((pronostic) => {
     return this.prisma.pronostic.upsert({
       where: {
@@ -184,19 +187,7 @@ async createBulk(pronostics: CreatePronosticDto[], userId: number) {
     });
   });
 
-  // Ejecutar todas las operaciones en una transacción
-  const upsertedPronostics = await this.prisma.$transaction(upsertPromises);
-
-  // Calcular estadísticas
-  const created = pronostics.filter(p => !existingExternalIds.has(p.externalId)).length;
-  const updated = pronostics.length - created;
-
-  return {
-    count: upsertedPronostics.length,
-    created,
-    updated,
-    pronostics: upsertedPronostics,
-  };
+  return this.prisma.$transaction(upsertPromises);
 }
 ```
 
@@ -205,5 +196,6 @@ async createBulk(pronostics: CreatePronosticDto[], userId: number) {
 1. **Upsert nativo de Prisma**: Más eficiente y limpio
 2. **Transacción**: Atomicidad garantizada con `$transaction`
 3. **Constraint única**: Garantiza integridad a nivel de DB
-4. **Estadísticas precisas**: Cálculo correcto de creados vs actualizados
-5. **Operaciones paralelas**: Todas las operaciones se ejecutan en paralelo dentro de la transacción 
+4. **Código simple**: Sin try/catch, sin cálculos de estadísticas
+5. **Filtro global**: Manejo automático de excepciones de Prisma
+6. **Operaciones paralelas**: Todas las operaciones se ejecutan en paralelo dentro de la transacción 

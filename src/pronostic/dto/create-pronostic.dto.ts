@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
+import { IsNotEmpty, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { PredictionDto } from './prediction.dto';
 
 export class CreatePronosticDto {
   @ApiProperty({
@@ -7,15 +9,15 @@ export class CreatePronosticDto {
     example: 'edcgcdj',
     type: 'string',
   })
+  @IsString()
+  @IsNotEmpty()
   externalId: string;
 
   @ApiProperty({
     description: 'Predicción del usuario conteniendo marcadores y goleadores',
-    example: {
-      scores: [2, 1],
-      scorers: ['Messi', 'Di María'],
-    },
-    type: 'object',
+    type: PredictionDto,
   })
-  prediction: Prisma.JsonValue;
+  @ValidateNested()
+  @Type(() => PredictionDto)
+  prediction: PredictionDto;
 }

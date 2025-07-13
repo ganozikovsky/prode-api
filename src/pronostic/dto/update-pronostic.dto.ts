@@ -1,17 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Prisma } from '@prisma/client';
+import { IsOptional, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { PredictionDto } from './prediction.dto';
 
 export class UpdatePronosticDto {
   @ApiProperty({
     description: 'Nueva predicción del usuario (opcional)',
-    example: {
-      homeScore: 3,
-      awayScore: 1,
-      homeScorers: ['Messi', 'Di Maria', 'Lautaro'],
-      awayScorers: ['Cavani'],
-    },
-    type: 'object',
+    type: PredictionDto,
     required: false,
   })
-  prediction?: Prisma.JsonValue;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PredictionDto)
+  prediction?: PredictionDto;
 }

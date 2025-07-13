@@ -33,6 +33,7 @@
     "@sentry/node": "^9.38.0",
     "@sentry/profiling-node": "^9.38.0",
     "axios": "^1.10.0",
+    "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "cors": "^2.8.5",
     "google-auth-library": "^10.1.0",

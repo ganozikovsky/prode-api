@@ -1,0 +1,160 @@
+### Ejemplo de pronóstico válido - Scores con ambos equipos marcando
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example123",
+  "prediction": {
+    "scores": [2, 1],
+    "scorers": ["Messi", "Di María"]
+  }
+}
+
+### Ejemplo de pronóstico válido - Empate sin goleadores
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example124",
+  "prediction": {
+    "scores": [0, 0]
+  }
+}
+
+### Ejemplo de pronóstico válido - Solo un goleador
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example125",
+  "prediction": {
+    "scores": [1, 0],
+    "scorers": ["Cavani"]
+  }
+}
+
+### ❌ EJEMPLO INVÁLIDO - Scores con número negativo
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example126",
+  "prediction": {
+    "scores": [-1, 1],
+    "scorers": ["Messi"]
+  }
+}
+
+### ❌ EJEMPLO INVÁLIDO - Scores con más de 2 elementos
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example127",
+  "prediction": {
+    "scores": [1, 2, 0],
+    "scorers": ["Messi"]
+  }
+}
+
+### ❌ EJEMPLO INVÁLIDO - Scores con menos de 2 elementos
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example128",
+  "prediction": {
+    "scores": [1],
+    "scorers": ["Messi"]
+  }
+}
+
+### ❌ EJEMPLO INVÁLIDO - Scorers con más de 2 elementos
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example129",
+  "prediction": {
+    "scores": [3, 0],
+    "scorers": ["Messi", "Di María", "Lautaro"]
+  }
+}
+
+### ❌ EJEMPLO INVÁLIDO - Scores con valores no numéricos
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example130",
+  "prediction": {
+    "scores": ["1", "2"],
+    "scorers": ["Messi"]
+  }
+}
+
+### ❌ EJEMPLO INVÁLIDO - Scorers con valores no string
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example131",
+  "prediction": {
+    "scores": [1, 1],
+    "scorers": [10, 7]
+  }
+}
+
+### ❌ EJEMPLO INVÁLIDO - Falta el campo scores (obligatorio)
+POST {{host}}/pronostics
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "externalId": "example132",
+  "prediction": {
+    "scorers": ["Messi"]
+  }
+}
+
+### Ejemplo de actualización válida
+PATCH {{host}}/pronostics/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "prediction": {
+    "scores": [1, 1],
+    "scorers": ["Cavani", "Suarez"]
+  }
+}
+
+### Ejemplo de creación en lote (bulk)
+POST {{host}}/pronostics/bulk
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+[
+  {
+    "externalId": "bulk_example_1",
+    "prediction": {
+      "scores": [2, 1],
+      "scorers": ["Messi", "Di María"]
+    }
+  },
+  {
+    "externalId": "bulk_example_2",
+    "prediction": {
+      "scores": [0, 0]
+    }
+  }
+] 
