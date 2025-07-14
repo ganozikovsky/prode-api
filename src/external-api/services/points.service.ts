@@ -664,25 +664,43 @@ export class PointsService {
   async hasMatchesToday(): Promise<boolean> {
     try {
       const currentMatchdayData = await this.promiedosService.getMatchday();
-      const today = new Date();
 
-      // Verificar si algún partido es hoy
+      // Obtener fecha de HOY en horario argentino (UTC-3)
+      const now = new Date();
+      const argentinaTime = new Date(
+        now.toLocaleString('en-US', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+        }),
+      );
+      const todayArgentina =
+        argentinaTime.getFullYear() +
+        '-' +
+        String(argentinaTime.getMonth() + 1).padStart(2, '0') +
+        '-' +
+        String(argentinaTime.getDate()).padStart(2, '0');
+
+      this.logger.debug(`🕒 Fecha actual en Argentina: ${todayArgentina}`);
+      this.logger.debug(
+        `🌍 Hora servidor: ${now.toISOString()}, Hora Argentina: ${argentinaTime.toISOString()}`,
+      );
+
       const hasGamesToday = currentMatchdayData.games.some((game: any) => {
         if (!game.start_time) return false;
 
-        // Parsear fecha del formato "13-07-2025 21:00"
         const [datePart] = game.start_time.split(' ');
         const [day, month, year] = datePart.split('-');
-        const gameDate = new Date(`${year}-${month}-${day}`);
+        const gameDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-        return (
-          gameDate.getDate() === today.getDate() &&
-          gameDate.getMonth() === today.getMonth() &&
-          gameDate.getFullYear() === today.getFullYear()
+        this.logger.debug(
+          `🎮 Partido: ${gameDate}, Hoy (ARG): ${todayArgentina}, ¿Coincide? ${gameDate === todayArgentina}`,
         );
+
+        return gameDate === todayArgentina;
       });
 
-      this.logger.log(`📅 ¿Hay partidos hoy? ${hasGamesToday ? 'SÍ' : 'NO'}`);
+      this.logger.log(
+        `📅 ¿Hay partidos hoy en Argentina? ${hasGamesToday ? 'SÍ' : 'NO'}`,
+      );
       return hasGamesToday;
     } catch (error) {
       this.logger.error('❌ Error verificando partidos de hoy:', error);
