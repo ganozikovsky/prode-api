@@ -20,17 +20,45 @@ export class PromiedosController {
 
   /**
    * 📅 Función helper para parsear fechas del formato "13-07-2025 21:00"
+   * Ahora incluye la hora y maneja correctamente la zona horaria argentina
    */
   private parseMatchDate(dateString: string): Date {
     if (!dateString) return new Date();
 
-    const [datePart] = dateString.split(' ');
-    const [day, month, year] = datePart.split('-');
-    return new Date(`${year}-${month}-${day}`);
+    try {
+      // Parsear formato "DD-MM-YYYY HH:MM"
+      const regex = /(\d{1,2})-(\d{1,2})-(\d{4})\s+(\d{1,2}):(\d{2})/;
+      const match = regex.exec(dateString);
+
+      if (!match) {
+        // Fallback: solo fecha sin hora
+        const [datePart] = dateString.split(' ');
+        const [day, month, year] = datePart.split('-');
+        return new Date(`${year}-${month}-${day}`);
+      }
+
+      const [, day, month, year, hour, minute] = match;
+
+      // Crear fecha en horario argentino (UTC-3)
+      // Nota: Los horarios vienen de Argentina, así que los interpretamos como tal
+      const argDate = new Date(
+        parseInt(year),
+        parseInt(month) - 1, // Los meses en JS van de 0-11
+        parseInt(day),
+        parseInt(hour),
+        parseInt(minute),
+      );
+
+      return argDate;
+    } catch (error) {
+      // En caso de error, usar la fecha actual
+      return new Date();
+    }
   }
 
   /**
    * 🗓️ Función helper para agrupar partidos por fecha
+   * Ahora preserva las horas originales de los partidos
    */
   private groupMatchesByDate(
     games: GameWithPronostics[],
@@ -38,8 +66,10 @@ export class PromiedosController {
     const groupedGames = new Map<string, GameWithPronostics[]>();
 
     games.forEach((game) => {
-      const gameDate = this.parseMatchDate(game.start_time);
-      const dateKey = gameDate.toISOString().split('T')[0];
+      // Para agrupar por fecha, solo usamos la parte de la fecha (sin hora)
+      const [datePart] = game.start_time.split(' ');
+      const [day, month, year] = datePart.split('-');
+      const dateKey = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
       if (!groupedGames.has(dateKey)) {
         groupedGames.set(dateKey, []);
@@ -48,14 +78,26 @@ export class PromiedosController {
     });
 
     const result = Array.from(groupedGames.entries()).map(([date, matches]) => {
+      // Ordenar partidos por hora dentro de cada fecha
       const sortedMatches = [...matches].sort((a, b) => {
         const timeA = a.start_time.split(' ')[1] || '00:00';
         const timeB = b.start_time.split(' ')[1] || '00:00';
         return timeA.localeCompare(timeB);
       });
+
+      // Enriquecer cada partido con información de zona horaria clara
+      const enrichedMatches = sortedMatches.map((match) => ({
+        ...match,
+        // Agregar fecha/hora parsada en formato ISO (horario argentino)
+        start_time_iso: this.parseMatchDate(match.start_time).toISOString(),
+        // Mantener timezone info para el frontend
+        timezone: 'America/Argentina/Buenos_Aires',
+        timezone_offset: '-03:00',
+      }));
+
       return {
-        date: new Date(date).toISOString(),
-        matches: sortedMatches,
+        date: new Date(date + 'T00:00:00.000Z').toISOString(), // Fecha normalizada a UTC
+        matches: enrichedMatches,
       };
     });
 

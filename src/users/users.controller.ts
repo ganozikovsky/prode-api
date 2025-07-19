@@ -129,8 +129,8 @@ export class UsersController {
   @ApiOperation({
     summary: '🏆 Obtener ranking global de usuarios',
     description:
-      'Obtiene el ranking global de todos los usuarios basado en sus puntos totales acumulados ' +
-      'de todos los torneos en los que han participado. Los usuarios sin puntos no aparecen en el ranking.',
+      'Obtiene el ranking global de TODOS los usuarios basado en sus puntos totales acumulados ' +
+      'de todos los torneos en los que han participado. Incluye usuarios sin puntos (0 puntos) al final del ranking.',
   })
   @ApiResponse({
     status: 200,

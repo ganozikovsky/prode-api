@@ -671,9 +671,7 @@ export class PointsService {
    */
   async getGlobalRanking(): Promise<any[]> {
     const ranking = await this.prisma.user.findMany({
-      where: {
-        globalPoints: { gt: 0 }, // Solo usuarios con puntos
-      },
+      // ✅ INCLUYE TODOS LOS USUARIOS (incluso con 0 puntos)
       select: {
         id: true,
         name: true,

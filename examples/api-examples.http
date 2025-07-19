@@ -28,6 +28,23 @@ GET {{host}}/promiedos/lpf/2
 Accept: application/json
 
 # ===============================================
+# 🕒 IMPORTANTE: MANEJO DE ZONAS HORARIAS
+# ===============================================
+
+# 📝 NOTA SOBRE HORARIOS:
+# Los partidos ahora incluyen información completa de zona horaria:
+# 
+# "start_time": "13-07-2025 21:00"           // ✅ Formato original (horario argentino)
+# "start_time_iso": "2025-07-13T21:00:00.000Z" // ✅ Formato ISO para procesamiento
+# "timezone": "America/Argentina/Buenos_Aires"   // ✅ Zona horaria clara
+# "timezone_offset": "-03:00"                    // ✅ Offset UTC
+#
+# 🎯 Para el frontend:
+# - Usar 'start_time_iso' con 'timezone' para mostrar hora correcta
+# - O usar 'start_time' sabiendo que está en horario argentino
+# - Evitar interpretar 'start_time' como UTC
+
+# ===============================================
 # 🏆 ESCUDOS DE EQUIPOS
 # ===============================================
 
@@ -364,6 +381,7 @@ Accept: application/json
 # - Cada punto ganado en cualquier torneo suma a puntos globales
 # - Los puntos globales NO se restan nunca
 # - Ranking global independiente de torneos específicos
+# - El ranking incluye TODOS los usuarios (incluso con 0 puntos)
 
 # 🔧 TESTING:
 # - Usa endpoints admin/points/* para probar manualmente
