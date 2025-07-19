@@ -62,7 +62,6 @@ export interface GameWithPronostics extends Game {
   pronostics: PronosticData[];
   totalPronostics: number;
   // 🆕 Nuevos campos para manejo de zona horaria
-  start_time_iso?: string; // Fecha/hora en formato ISO
   timezone?: string; // Zona horaria (ej: America/Argentina/Buenos_Aires)
   timezone_offset?: string; // Offset UTC (ej: -03:00)
 }

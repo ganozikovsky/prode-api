@@ -88,8 +88,8 @@ export class PromiedosController {
       // Enriquecer cada partido con información de zona horaria clara
       const enrichedMatches = sortedMatches.map((match) => ({
         ...match,
-        // Agregar fecha/hora parsada en formato ISO (horario argentino)
-        start_time_iso: this.parseMatchDate(match.start_time).toISOString(),
+        // Mantener el start_time original sin conversión (ya está en horario argentino)
+        // start_time_iso: this.parseMatchDate(match.start_time).toISOString(), // ❌ Causaba el problema
         // Mantener timezone info para el frontend
         timezone: 'America/Argentina/Buenos_Aires',
         timezone_offset: '-03:00',

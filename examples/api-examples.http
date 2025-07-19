@@ -32,17 +32,16 @@ Accept: application/json
 # ===============================================
 
 # 📝 NOTA SOBRE HORARIOS:
-# Los partidos ahora incluyen información completa de zona horaria:
+# Los partidos mantienen el horario original de la API de Promiedos:
 # 
-# "start_time": "13-07-2025 21:00"           // ✅ Formato original (horario argentino)
-# "start_time_iso": "2025-07-13T21:00:00.000Z" // ✅ Formato ISO para procesamiento
+# "start_time": "18-07-2025 17:30"           // ✅ Formato original (horario argentino)
 # "timezone": "America/Argentina/Buenos_Aires"   // ✅ Zona horaria clara
 # "timezone_offset": "-03:00"                    // ✅ Offset UTC
 #
 # 🎯 Para el frontend:
-# - Usar 'start_time_iso' con 'timezone' para mostrar hora correcta
-# - O usar 'start_time' sabiendo que está en horario argentino
-# - Evitar interpretar 'start_time' como UTC
+# - Usar 'start_time' directamente (ya está en horario argentino)
+# - NO convertir a UTC - los horarios ya están correctos
+# - El campo 'start_time' contiene la hora exacta de Argentina
 
 # ===============================================
 # 🏆 ESCUDOS DE EQUIPOS
