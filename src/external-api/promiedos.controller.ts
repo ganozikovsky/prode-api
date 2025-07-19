@@ -86,14 +86,29 @@ export class PromiedosController {
       });
 
       // Enriquecer cada partido con información de zona horaria clara
-      const enrichedMatches = sortedMatches.map((match) => ({
-        ...match,
-        // Mantener el start_time original sin conversión (ya está en horario argentino)
-        // start_time_iso: this.parseMatchDate(match.start_time).toISOString(), // ❌ Causaba el problema
-        // Mantener timezone info para el frontend
-        timezone: 'America/Argentina/Buenos_Aires',
-        timezone_offset: '-03:00',
-      }));
+      const enrichedMatches = sortedMatches.map((match) => {
+        // Parsear el horario original y agregar 2 horas
+        const parsedDate = this.parseMatchDate(match.start_time);
+        const adjustedDate = new Date(
+          parsedDate.getTime() + 2 * 60 * 60 * 1000,
+        ); // +2 horas
+
+        // Formatear de vuelta al formato original pero con 2 horas adelantado
+        const day = adjustedDate.getDate().toString().padStart(2, '0');
+        const month = (adjustedDate.getMonth() + 1).toString().padStart(2, '0');
+        const year = adjustedDate.getFullYear();
+        const hours = adjustedDate.getHours().toString().padStart(2, '0');
+        const minutes = adjustedDate.getMinutes().toString().padStart(2, '0');
+
+        const adjustedStartTime = `${day}-${month}-${year} ${hours}:${minutes}`;
+
+        return {
+          ...match,
+          start_time: adjustedStartTime, // ✅ Horario con 2 horas adelantado
+          timezone: 'America/Argentina/Buenos_Aires',
+          timezone_offset: '-03:00',
+        };
+      });
 
       return {
         date: new Date(date + 'T00:00:00.000Z').toISOString(), // Fecha normalizada a UTC
