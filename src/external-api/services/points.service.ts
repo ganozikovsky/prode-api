@@ -586,8 +586,17 @@ export class PointsService {
       },
     });
 
+    // 🌟 NUEVO: Actualizar puntos globales del usuario
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { 
+        globalPoints: { increment: points },
+        updatedAt: new Date(),
+      },
+    });
+
     this.logger.debug(
-      `📊 Puntos actualizados: Usuario ${userId}, Torneo ${tournamentId}, Fecha ${matchday}, +${points} puntos`,
+      `📊 Puntos actualizados: Usuario ${userId}, Torneo ${tournamentId}, Fecha ${matchday}, +${points} puntos (Global +${points})`,
     );
   }
 
@@ -654,6 +663,47 @@ export class PointsService {
       user: participant.user,
       points: participant.points,
       joinedAt: participant.joinedAt,
+    }));
+  }
+
+  /**
+   * 🌟 NUEVO: Obtiene el ranking global de todos los usuarios
+   */
+  async getGlobalRanking(): Promise<any[]> {
+    const ranking = await this.prisma.user.findMany({
+      where: {
+        globalPoints: { gt: 0 }, // Solo usuarios con puntos
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatar: true,
+        globalPoints: true,
+        createdAt: true,
+        _count: {
+          select: {
+            participations: true, // Cantidad de torneos en los que participa
+          },
+        },
+      },
+      orderBy: [
+        { globalPoints: 'desc' },
+        { createdAt: 'asc' }, // Desempate por quien se registró primero
+      ],
+    });
+
+    return ranking.map((user, index) => ({
+      position: index + 1,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+      },
+      globalPoints: user.globalPoints,
+      tournamentsCount: user._count.participations,
+      joinedAt: user.createdAt,
     }));
   }
 

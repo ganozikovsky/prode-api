@@ -332,6 +332,14 @@ GET {{host}}/promiedos/admin/points/status
 Accept: application/json
 
 # ===============================================
+# 🌟 RANKING GLOBAL DE USUARIOS
+# ===============================================
+
+### 27. Obtener ranking global de todos los usuarios
+GET {{host}}/users/ranking/global
+Accept: application/json
+
+# ===============================================
 # 💡 NOTAS SOBRE SISTEMA DE PUNTOS
 # ===============================================
 
@@ -349,9 +357,16 @@ Accept: application/json
 # 📊 RANKINGS:
 # - Rankings por fecha: quién ganó cada fecha
 # - Rankings acumulativos: puntos totales del torneo
+# - Ranking global: puntos acumulados de TODOS los torneos
 # - Desempate por fecha de pronóstico/unión
+
+# 🌟 PUNTOS GLOBALES:
+# - Cada punto ganado en cualquier torneo suma a puntos globales
+# - Los puntos globales NO se restan nunca
+# - Ranking global independiente de torneos específicos
 
 # 🔧 TESTING:
 # - Usa endpoints admin/points/* para probar manualmente
 # - Los puntos se calculan automáticamente para todos los torneos
+# - Puntos globales se actualizan automáticamente
 # - Un pronóstico solo se procesa una vez (campo 'processed') 

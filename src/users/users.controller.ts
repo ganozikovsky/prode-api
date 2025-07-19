@@ -15,11 +15,16 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { PointsService } from '../external-api/services/points.service';
+import { GlobalRankingResponseDto } from './dto/global-ranking.dto';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly pointsService: PointsService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -114,5 +119,29 @@ export class UsersController {
   })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);
+  }
+
+  // ==========================================
+  // 🌟 NUEVO ENDPOINT - RANKING GLOBAL
+  // ==========================================
+
+  @Get('ranking/global')
+  @ApiOperation({
+    summary: '🏆 Obtener ranking global de usuarios',
+    description:
+      'Obtiene el ranking global de todos los usuarios basado en sus puntos totales acumulados ' +
+      'de todos los torneos en los que han participado. Los usuarios sin puntos no aparecen en el ranking.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Ranking global obtenido exitosamente',
+    type: [GlobalRankingResponseDto],
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Error interno del servidor',
+  })
+  async getGlobalRanking(): Promise<GlobalRankingResponseDto[]> {
+    return this.pointsService.getGlobalRanking();
   }
 }

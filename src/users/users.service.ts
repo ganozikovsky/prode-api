@@ -18,6 +18,7 @@ export class UsersService {
           id: true,
           email: true,
           name: true,
+          globalPoints: true,
           createdAt: true,
         },
       });
@@ -35,8 +36,13 @@ export class UsersService {
         id: true,
         email: true,
         name: true,
+        globalPoints: true,
         createdAt: true,
       },
+      orderBy: [
+        { globalPoints: 'desc' }, // Ordenar por puntos globales
+        { createdAt: 'asc' },
+      ],
     });
   }
 
@@ -47,7 +53,14 @@ export class UsersService {
         id: true,
         email: true,
         name: true,
+        globalPoints: true,
         createdAt: true,
+        _count: {
+          select: {
+            participations: true, // Cantidad de torneos
+            pronostics: true, // Cantidad de pronósticos
+          },
+        },
       },
     });
 
@@ -65,6 +78,7 @@ export class UsersService {
         id: true,
         email: true,
         name: true,
+        globalPoints: true,
         createdAt: true,
       },
     });
