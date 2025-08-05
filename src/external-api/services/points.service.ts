@@ -395,29 +395,8 @@ export class PointsService {
           `👤 ${pronostic.user.name}: Pronóstico ${JSON.stringify(prediction.scores)} vs Real ${JSON.stringify(game.scores)} = ${newPoints} puntos (anterior: ${previousLivePoints}, diferencia: ${pointsDifference})`,
         );
 
-        // Solo actualizar si hay cambios en los puntos
+        // Solo actualizar los puntos temporales en el pronóstico (NO sumar a tablas finales)
         if (pointsDifference !== 0) {
-          // Buscar todos los torneos donde participa este usuario
-          const userTournaments =
-            await this.prisma.tournamentParticipant.findMany({
-              where: { userId: pronostic.userId },
-              select: { tournamentId: true },
-            });
-
-          const tournamentsAffected = userTournaments.map(
-            (t) => t.tournamentId,
-          );
-
-          // Actualizar puntos en todos los torneos del usuario
-          for (const tournament of userTournaments) {
-            await this.updateUserPointsInTournament(
-              tournament.tournamentId,
-              pronostic.userId,
-              matchday,
-              pointsDifference, // Solo la diferencia
-            );
-          }
-
           // Actualizar los puntos temporales en el pronóstico
           await this.prisma.pronostic.update({
             where: { id: pronostic.id },
@@ -433,7 +412,7 @@ export class PointsService {
             realScores: game.scores,
             pointsAwarded: pointsDifference, // La diferencia, no el total
             pointType,
-            tournamentsAffected,
+            tournamentsAffected: [], // No se actualizan torneos en vivo
             isLive: true,
           });
 
