@@ -1,4 +1,8 @@
-import '../newrelic';
+try {
+  require('../newrelic');
+} catch (error) {
+  console.error('Error al importar newrelic:', error);
+}
 import * as Sentry from '@sentry/node';
 
 Sentry.init({
